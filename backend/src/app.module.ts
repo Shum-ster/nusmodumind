@@ -1,22 +1,10 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Name } from './entities/name.entity';
-import { NamesModule } from './names/names.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
-  imports: [
-    NamesModule,
-    TypeOrmModule.forRoot({
-      type:'postgres',
-      host:'localhost',
-      port: 5432,
-      username:'postgres',
-      password:'postgres',
-      database:'postgres',
-      entities: [Name],
-      synchronize:true,
-    }),
-  ],
-  
+  imports: [PrismaModule, UsersModule],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
