@@ -29,4 +29,18 @@ export class AuthService {
     const { password: _, ...userWithoutPassword } = newUser;
     return userWithoutPassword;
   }
+  
+  async validateUser(email: string, pass: string): Promise<any> {
+    const user = await this.usersService.findUserByEmail(email);
+    
+    if (user) {
+      const isMatch = await bcrypt.compare(pass, user.password);
+      if (isMatch) {
+        const { password, ...result } = user;
+        return result;
+      }
+    }
+    
+    return null;
+  }
 }
