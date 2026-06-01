@@ -50,7 +50,7 @@ export class AuthService {
 
   async login(user: any) {
     const payload = { email: user.email, sub: user.id };
-    
+    // Sign the payload using secret key and return
     return {
       access_token: this.jwtService.sign(payload),
     };
