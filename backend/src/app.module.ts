@@ -1,22 +1,17 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Name } from './entities/name.entity';
-import { NamesModule } from './names/names.module';
+import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from './prisma/prisma.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
-    NamesModule,
-    TypeOrmModule.forRoot({
-      type:'postgres',
-      host:'localhost',
-      port: 5432,
-      username:'postgres',
-      password:'postgres',
-      database:'postgres',
-      entities: [Name],
-      synchronize:true,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }), 
+    PrismaModule, 
+    UsersModule, 
+    AuthModule
   ],
-  
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}

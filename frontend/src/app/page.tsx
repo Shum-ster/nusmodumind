@@ -1,11 +1,5 @@
-import NamesList from "@/components/Nameslist";
-import React from "react";
+import { AuthPage } from "@/features/auth/AuthPage";
 
-const page=()=>{
-  return (
-    <>
-    <NamesList/>
-    </>
-  )
+export default function Home() {
+  return <AuthPage />;
 }
-export default page;
