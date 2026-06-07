@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Header, Sidebar } from '../layout';
-import { DashboardPage } from './DashboardPage';
-import { TimetablePage } from '../timetable';
-import { CoursesPage } from '../courses';
-import { MarketplacePage } from '../marketplace';
+import { Header, Sidebar } from '../../';
+import { DashboardPage } from '../../../dashboard';
+import { TimetablePage } from '../../../timetable';
+import { CoursesPage } from '../../../courses';
+import { MarketplacePage } from '../../../marketplace';
 
 type TabName = 'dashboard' | 'timetable' | 'courses' | 'marketplace';
 

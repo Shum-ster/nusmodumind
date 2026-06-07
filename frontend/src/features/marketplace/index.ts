@@ -1,2 +1,2 @@
 export { MarketplacePage } from './MarketplacePage';
-export { MarketplaceButton } from './components/MarketplaceButton';
+export { MarketplaceButton } from './components';

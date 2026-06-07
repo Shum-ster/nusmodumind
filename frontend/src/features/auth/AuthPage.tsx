@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LoginForm } from "./components/LoginForm";
+import { LoginForm } from "./components/LoginPage";
 import { MainAppPage } from "./components/MainAppPage";
 import { getCurrentUser, login, register } from "./lib/auth-api";
 import { clearToken, getToken, saveToken } from "./lib/token-storage";
@@ -88,18 +88,41 @@ export function AuthPage() {
   }
 
   return (
-    <main className="block">
-      <h1 className="block">Login</h1>
-      <LoginForm
-        email={email}
-        password={password}
-        isLoading={isLoading}
-        onEmailChange={setEmail}
-        onPasswordChange={setPassword}
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-      />
-      <p className="block">{status}</p>
-    </main>
+    <div className="min-h-screen flex flex-col bg-gray-800 text-gray-50 font-sans">
+      <div className="flex-1 flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-12">
+            <h1 className="text-5xl font-bold text-orange-600 mb-2">
+              Modumind
+            </h1>
+            <p className="text-gray-400 text-sm">
+              NUS Module Management Platform
+            </p>
+          </div>
+
+          <div className="bg-gray-700 rounded-lg p-8 shadow-lg">
+            <h2 className="text-2xl font-semibold text-gray-50 mb-6 text-center">
+              Login
+            </h2>
+            <LoginForm
+              email={email}
+              password={password}
+              isLoading={isLoading}
+              onEmailChange={setEmail}
+              onPasswordChange={setPassword}
+              onLogin={handleLogin}
+              onRegister={handleRegister}
+            />
+            {status && (
+              <p
+                className={`text-center text-[0.65rem] mt-4 ${status.includes("failed") || status.includes("Error") ? "text-red-400" : "text-gray-300"}`}
+              >
+                {status}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
