@@ -1,26 +1,26 @@
 import { LayoutDashboard, Calendar, BookOpen, BookSearch } from 'lucide-react';
+import Link from 'next/link';
 import { LogoutButton } from './LogoutButton';
 
 type SidebarProps = {
   activePage: 'dashboard' | 'timetable' | 'courses' | 'marketplace';
-  onPageChange: (page: 'dashboard' | 'timetable' | 'courses' | 'marketplace') => void;
   onLogout: () => void;
 };
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'timetable', label: 'Timetable', icon: Calendar },
-  { id: 'courses', label: 'My Courses', icon: BookOpen },
-  { id: 'marketplace', label: 'Marketplace', icon: BookSearch },
-];
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+  { id: 'timetable', label: 'Timetable', icon: Calendar, href: '/timetable' },
+  { id: 'courses', label: 'My Courses', icon: BookOpen, href: '/courses' },
+  { id: 'marketplace', label: 'Marketplace', icon: BookSearch, href: '/marketplace' },
+] as const;
 
-export function Sidebar({ activePage, onPageChange, onLogout }: SidebarProps) {
+export function Sidebar({ activePage, onLogout }: SidebarProps) {
   return (
     <nav className="w-48 bg-gray-800 p-4 flex flex-col gap-2">
-      {navItems.map(({ id, label, icon: Icon }) => (
-        <button
+      {navItems.map(({ id, label, icon: Icon, href }) => (
+        <Link
           key={id}
-          onClick={() => onPageChange(id as any)}
+          href={href}
           className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-colors ${
             activePage === id
               ? 'bg-gray-300 text-orange-600'
@@ -29,7 +29,7 @@ export function Sidebar({ activePage, onPageChange, onLogout }: SidebarProps) {
         >
           <Icon className="w-4 h-5" />
           {label}
-        </button>
+        </Link>
       ))}
       <div className="flex-1" />
       <LogoutButton onLogout={onLogout} />

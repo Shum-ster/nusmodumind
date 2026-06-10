@@ -1,3 +1,5 @@
+'use client';
+
 import { MarketplaceButton } from './components/MarketplaceButton';
 
 export function MarketplacePage() {

@@ -8,11 +8,6 @@ type Task = {
   column: 'todo' | 'done';
 };
 
-type MainAppPageProps = {
-  status: string;
-  onLogout: () => void;
-};
-
 export function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([
     { id: '1', title: 'Setup Vite Project', column: 'todo' },

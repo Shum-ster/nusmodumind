@@ -1,42 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { Header, Sidebar } from '../../';
-import { DashboardPage } from '../../../dashboard';
-import { TimetablePage } from '../../../timetable';
-import { CoursesPage } from '../../../courses';
-import { MarketplacePage } from '../../../marketplace';
 
 type TabName = 'dashboard' | 'timetable' | 'courses' | 'marketplace';
 
 type DashboardLayoutProps = {
+  children: ReactNode;
   onLogout: () => void;
 };
 
-export function DashboardLayout({ onLogout }: DashboardLayoutProps) {
-  const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+const pageByPath: Record<string, TabName> = {
+  '/dashboard': 'dashboard',
+  '/timetable': 'timetable',
+  '/courses': 'courses',
+  '/marketplace': 'marketplace',
+};
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'timetable':
-        return <TimetablePage />;
-      case 'courses':
-        return <CoursesPage />;
-      case 'marketplace':
-        return <MarketplacePage />;
-      case 'dashboard':
-      default:
-        return <DashboardPage />;
-    }
-  };
+export function DashboardLayout({ children, onLogout }: DashboardLayoutProps) {
+  const pathname = usePathname();
+  const activePage = pageByPath[pathname] ?? 'dashboard';
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-800 text-gray-50 font-sans">
       <Header />
       <div className="flex flex-1">
-        <Sidebar activePage={activeTab} onPageChange={setActiveTab} onLogout={onLogout} />
+        <Sidebar activePage={activePage} onLogout={onLogout} />
         <main className="flex-1 p-8">
-          {renderContent()}
+          {children}
         </main>
       </div>
     </div>
