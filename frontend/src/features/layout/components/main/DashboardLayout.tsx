@@ -21,7 +21,9 @@ const pageByPath: Record<string, TabName> = {
 
 export function DashboardLayout({ children, onLogout }: DashboardLayoutProps) {
   const pathname = usePathname();
-  const activePage = pageByPath[pathname] ?? 'dashboard';
+  const activePage = pathname.startsWith('/marketplace/')
+    ? 'marketplace'
+    : pageByPath[pathname] ?? 'dashboard';
 
   return (
     <DashboardModuleSelectionProvider>

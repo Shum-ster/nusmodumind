@@ -1,3 +1,5 @@
+'use client';
+
 import Image from 'next/image';
 
 type MarketplaceButtonProps = {
@@ -10,16 +12,20 @@ export function MarketplaceButton({ title, imageURL, onClick }: MarketplaceButto
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center gap-3 p-4 rounded-lg hover:bg-gray-100 transition-colors"
+      className="flex h-56 w-full flex-col overflow-hidden rounded-lg transition-colors hover:bg-gray-100"
     >
-      <Image
-        src={imageURL}
-        alt={title}
-        width={64}
-        height={64}
-        className="w-16 h-16 object-cover rounded-lg"
-      />
-      <p className="text-sm font-medium text-gray-700 text-center">{title}</p>
+      <div className="relative h-[70%] w-full">
+        <Image
+          src={imageURL}
+          alt={title}
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
+          className="object-cover"
+        />
+      </div>
+      <div className="flex h-[30%] w-full items-center justify-center bg-gray-900 px-3">
+        <p className="text-center text-sm font-medium text-white">{title}</p>
+      </div>
     </button>
   );
 }
