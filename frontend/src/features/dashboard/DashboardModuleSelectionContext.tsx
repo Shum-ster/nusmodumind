@@ -183,4 +183,4 @@ export function useDashboardModuleSelection() {
   return context;
 }
 
-export type { SemesterKey, YearNumber };
+export type { SemesterKey, SemesterNumber, YearNumber };
