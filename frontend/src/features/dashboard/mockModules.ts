@@ -6,8 +6,8 @@ export type MockNusModule = {
   estimatedWorkload: number;
 };
 
-// Temporary dashboard seed data. Delete this file when real module data is wired in.
-export const mockNusModules: MockNusModule[] = [
+// Temporary searchable module database. Delete this file when real backend module data is wired in.
+export const searchableMockNusModules: MockNusModule[] = [
   { code: 'CS1010A', title: 'Programming Methodology', faculty: 'Computing', credits: 4, estimatedWorkload: 0 },
   { code: 'CS1231S', title: 'Discrete Structures', faculty: 'Computing', credits: 4, estimatedWorkload: 0 },
   { code: 'CS2030', title: 'Programming Methodology II', faculty: 'Computing', credits: 4, estimatedWorkload: 0 },
@@ -29,3 +29,18 @@ export const mockNusModules: MockNusModule[] = [
   { code: 'ES2660', title: 'Communicating in the Information Age', faculty: 'Arts and Social Sciences', credits: 4, estimatedWorkload: 0 },
   { code: 'CP2106', title: 'Independent Software Development Project', faculty: 'Computing', credits: 4, estimatedWorkload: 0 },
 ];
+
+export function searchMockNusModules(query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  return searchableMockNusModules
+    .filter((module) => {
+      const searchableText = `${module.code} ${module.title} ${module.faculty}`.toLowerCase();
+      return searchableText.includes(normalizedQuery);
+    })
+    .slice(0, 8);
+}
