@@ -1,35 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { LoginForm } from "./components/LoginPage";
-import { MainAppPage } from "./components/MainAppPage";
 import { getCurrentUser, login, register } from "./lib/auth-api";
 import { clearToken, getToken, saveToken } from "./lib/token-storage";
 import type { AuthCredentials } from "./types";
 
 export function AuthPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState("Checking saved login...");
 
-  const verifyToken = useCallback(async (token: string) => {
-    await getCurrentUser(token);
-    setIsAuthenticated(true);
-    setStatus("Logged in");
-  }, []);
-
   useEffect(() => {
     const token = getToken();
 
     if (!token) {
-      setStatus("Not logged in");
-      setIsLoading(false);
+      Promise.resolve().then(() => {
+        setStatus("Not logged in");
+        setIsLoading(false);
+      });
       return;
     }
 
-    verifyToken(token)
+    getCurrentUser(token)
+      .then(() => {
+        setIsAuthenticated(true);
+        setStatus("Logged in");
+      })
       .catch((error: Error) => {
         clearToken();
         setIsAuthenticated(false);
@@ -38,7 +39,13 @@ export function AuthPage() {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [verifyToken]);
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace("/dashboard");
+    }
+  }, [isAuthenticated, router]);
 
   const credentials: AuthCredentials = {
     email,
@@ -67,7 +74,9 @@ export function AuthPage() {
       const token = await login(credentials);
 
       saveToken(token);
-      await verifyToken(token);
+      await getCurrentUser(token);
+      setIsAuthenticated(true);
+      setStatus("Logged in");
     } catch (error) {
       clearToken();
       setIsAuthenticated(false);
@@ -77,14 +86,12 @@ export function AuthPage() {
     }
   }
 
-  function handleLogout() {
-    clearToken();
-    setIsAuthenticated(false);
-    setStatus("Logged out");
-  }
-
   if (isAuthenticated) {
-    return <MainAppPage status={status} onLogout={handleLogout} />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-800 text-gray-300 font-sans">
+        Opening dashboard...
+      </div>
+    );
   }
 
   return (
