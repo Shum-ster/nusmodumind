@@ -12,9 +12,14 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+
+  semesters     Semester[]
+  moduleReviews ModuleReview[]
+
+  @@map("users")
 }
 
 model NusModule {
@@ -30,5 +35,48 @@ model NusModule {
   semesterData  Json?    @map("semester_data")
   lastUpdated   DateTime @default(now()) @updatedAt @map("last_updated")
 
+  plannedModules PlannedModule[]
+  moduleReviews  ModuleReview[]
+
   @@map("nus_modules")
+}
+
+model Semester {
+  id              String          @id @default(uuid()) @db.Uuid
+  acadYear        String          @map("acad_year") // e.g., "2023/2024"
+  semesterNumber  Int             @map("semester_number") // 1 or 2
+  userId          String          @map("user_id") @db.Uuid
+  
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plannedModules  PlannedModule[]
+
+  @@map("semesters")
+}
+
+model PlannedModule {
+  id              String    @id @default(uuid()) @db.Uuid
+  semesterId      String    @map("semester_id") @db.Uuid
+  moduleCode      String    @map("module_code")
+  expectedGrade   String?   @map("expected_grade")
+  actualGrade     String?   @map("actual_grade")
+  selectedLessons Json?     @map("selected_lessons")
+
+  semester        Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  module          NusModule @relation(fields: [moduleCode], references: [moduleCode], onDelete: Restrict)
+
+  @@map("planned_modules")
+}
+
+model ModuleReview {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  moduleCode String   @map("module_code")
+  rating     Int      // 1-10 scale
+  content    String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module     NusModule @relation(fields: [moduleCode], references: [moduleCode], onDelete: Cascade)
+
+  @@map("module_reviews")
 }
