@@ -13,9 +13,9 @@ describe('AuthService', () => {
   let jwtService: { sign: jest.Mock };
 
   const userWithPassword = {
-    id: 1,
+    id: 'user-id',
     email: 'test@example.com',
-    password: 'hashed-password',
+    passwordHash: 'hashed-password',
   };
 
   beforeEach(() => {
@@ -40,7 +40,7 @@ describe('AuthService', () => {
   it('registers a new user without returning the password', async () => {
     usersService.findUserByEmail.mockResolvedValue(null);
     usersService.createUser.mockImplementation((data) =>
-      Promise.resolve({ id: 1, ...data }),
+      Promise.resolve({ id: 'user-id', ...data }),
     );
 
     const result = await service.register({
@@ -53,15 +53,15 @@ describe('AuthService', () => {
     );
     expect(usersService.createUser).toHaveBeenCalledWith({
       email: 'test@example.com',
-      password: expect.not.stringMatching(/^password123$/),
+      passwordHash: expect.not.stringMatching(/^password123$/),
     });
     await expect(
       bcrypt.compare(
         'password123',
-        usersService.createUser.mock.calls[0][0].password,
+        usersService.createUser.mock.calls[0][0].passwordHash,
       ),
     ).resolves.toBe(true);
-    expect(result).toEqual({ id: 1, email: 'test@example.com' });
+    expect(result).toEqual({ id: 'user-id', email: 'test@example.com' });
   });
 
   it('throws when registering with an existing email', async () => {
@@ -80,12 +80,12 @@ describe('AuthService', () => {
     const hashedPassword = await bcrypt.hash('password123', 1);
     usersService.findUserByEmail.mockResolvedValue({
       ...userWithPassword,
-      password: hashedPassword,
+      passwordHash: hashedPassword,
     });
 
     await expect(
       service.validateUser('test@example.com', 'password123'),
-    ).resolves.toEqual({ id: 1, email: 'test@example.com' });
+    ).resolves.toEqual({ id: 'user-id', email: 'test@example.com' });
   });
 
   it('returns null when the user does not exist', async () => {
@@ -100,7 +100,7 @@ describe('AuthService', () => {
     const hashedPassword = await bcrypt.hash('password123', 1);
     usersService.findUserByEmail.mockResolvedValue({
       ...userWithPassword,
-      password: hashedPassword,
+      passwordHash: hashedPassword,
     });
 
     await expect(
@@ -110,11 +110,11 @@ describe('AuthService', () => {
 
   it('signs a login payload', async () => {
     await expect(
-      service.login({ id: 1, email: 'test@example.com' }),
+      service.login({ id: 'user-id', email: 'test@example.com' }),
     ).resolves.toEqual({ access_token: 'signed-token' });
     expect(jwtService.sign).toHaveBeenCalledWith({
       email: 'test@example.com',
-      sub: 1,
+      sub: 'user-id',
     });
   });
 });

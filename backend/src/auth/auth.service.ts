@@ -27,10 +27,10 @@ export class AuthService {
     // Create new user in db
     const newUser = await this.usersService.createUser({
       email,
-      password: hashedPassword,
+      passwordHash: hashedPassword,
     });
 
-    const { password: _, ...userWithoutPassword } = newUser;
+    const { passwordHash: _, ...userWithoutPassword } = newUser;
     return userWithoutPassword;
   }
   
@@ -38,9 +38,9 @@ export class AuthService {
     const user = await this.usersService.findUserByEmail(email);
     
     if (user) {
-      const isMatch = await bcrypt.compare(pass, user.password);
+      const isMatch = await bcrypt.compare(pass, user.passwordHash);
       if (isMatch) {
-        const { password, ...result } = user;
+        const { passwordHash, ...result } = user;
         return result;
       }
     }

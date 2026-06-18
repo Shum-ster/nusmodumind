@@ -1,14 +1,40 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ModuleReviewsController } from './module_reviews.controller';
 import { ModuleReviewsService } from './module_reviews.service';
+import { CreateModuleReviewDto } from './dto/create-module_review.dto';
+import { UpdateModuleReviewDto } from './dto/update-module_review.dto';
 
 describe('ModuleReviewsController', () => {
   let controller: ModuleReviewsController;
+  let service: {
+    create: jest.Mock;
+    findByModule: jest.Mock;
+    findOne: jest.Mock;
+    update: jest.Mock;
+    remove: jest.Mock;
+  };
+
+  const review = {
+    id: '11111111-1111-1111-1111-111111111111',
+    userId: '22222222-2222-2222-2222-222222222222',
+    moduleCode: 'CS1010S',
+    rating: 9,
+    content: 'Good module',
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  };
 
   beforeEach(async () => {
+    service = {
+      create: jest.fn().mockResolvedValue(review),
+      findByModule: jest.fn().mockResolvedValue([review]),
+      findOne: jest.fn().mockResolvedValue(review),
+      update: jest.fn().mockResolvedValue(review),
+      remove: jest.fn().mockResolvedValue(review),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ModuleReviewsController],
-      providers: [ModuleReviewsService],
+      providers: [{ provide: ModuleReviewsService, useValue: service }],
     }).compile();
 
     controller = module.get<ModuleReviewsController>(ModuleReviewsController);
@@ -16,5 +42,39 @@ describe('ModuleReviewsController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  it('creates a module review', async () => {
+    const dto: CreateModuleReviewDto = {
+      userId: review.userId,
+      moduleCode: 'cs1010s',
+      rating: 9,
+      content: 'Good module',
+    };
+
+    await expect(controller.create(dto)).resolves.toEqual(review);
+    expect(service.create).toHaveBeenCalledWith(dto);
+  });
+
+  it('finds reviews by module', async () => {
+    await expect(controller.findByModule('cs1010s')).resolves.toEqual([review]);
+    expect(service.findByModule).toHaveBeenCalledWith('cs1010s');
+  });
+
+  it('finds one review', async () => {
+    await expect(controller.findOne(review.id)).resolves.toEqual(review);
+    expect(service.findOne).toHaveBeenCalledWith(review.id);
+  });
+
+  it('updates a review', async () => {
+    const dto: UpdateModuleReviewDto = { rating: 8 };
+
+    await expect(controller.update(review.id, dto)).resolves.toEqual(review);
+    expect(service.update).toHaveBeenCalledWith(review.id, dto);
+  });
+
+  it('removes a review', async () => {
+    await expect(controller.remove(review.id)).resolves.toEqual(review);
+    expect(service.remove).toHaveBeenCalledWith(review.id);
   });
 });

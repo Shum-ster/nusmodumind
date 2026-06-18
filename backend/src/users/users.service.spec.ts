@@ -12,9 +12,9 @@ describe('UsersService', () => {
   };
 
   const user = {
-    id: 1,
+    id: 'user-id',
     email: 'test@example.com',
-    password: 'hashed-password',
+    passwordHash: 'hashed-password',
   };
 
   beforeEach(async () => {
@@ -51,7 +51,7 @@ describe('UsersService', () => {
   it('creates a user', async () => {
     const data = {
       email: 'test@example.com',
-      password: 'hashed-password',
+      passwordHash: 'hashed-password',
     };
 
     await expect(service.createUser(data)).resolves.toEqual(user);

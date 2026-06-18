@@ -5,9 +5,10 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { NusmoduleModule } from './nusmodule/nusmodule.module';
 import { SemestersModule } from './semesters/semesters.module';
+import { PlanReviewsModule } from './plan_reviews/plan_reviews.module';
+import { PublicPlansModule } from './public_plans/public_plans.module';
 import { PlannedModulesModule } from './planned_modules/planned_modules.module';
 import { ModuleReviewsModule } from './module_reviews/module_reviews.module';
-import { SemestersModule } from './semesters/semesters.module';
 
 @Module({
   imports: [
@@ -19,6 +20,8 @@ import { SemestersModule } from './semesters/semesters.module';
     SemestersModule,
     PlannedModulesModule,
     ModuleReviewsModule,
+    PublicPlansModule,
+    PlanReviewsModule,
   ],
   controllers: [],
   providers: [],
