@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
@@ -22,6 +23,7 @@ import { ModuleReviewsModule } from './module_reviews/module_reviews.module';
     ModuleReviewsModule,
     PublicPlansModule,
     PlanReviewsModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [],
   providers: [],

@@ -40,12 +40,11 @@ export class PublicPlansService {
     }
     return plan;
   }
-  
+
   async remove(id: string): Promise<PublicPlan> {
-    // 1. Ensure the plan exists (findOne throws a NotFoundException if it doesn't)
+    // Ensure the plan exists
     await this.findOne(id); 
 
-    // 2. Delete the plan (and PostgreSQL will cascade delete the reviews)
     return this.prisma.publicPlan.delete({
       where: { id },
     });
