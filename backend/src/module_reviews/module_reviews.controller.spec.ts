@@ -14,9 +14,13 @@ describe('ModuleReviewsController', () => {
     remove: jest.Mock;
   };
 
+  const user = {
+    id: '22222222-2222-2222-2222-222222222222',
+    email: 'student@example.com',
+  };
   const review = {
     id: '11111111-1111-1111-1111-111111111111',
-    userId: '22222222-2222-2222-2222-222222222222',
+    userId: user.id,
     moduleCode: 'CS1010S',
     rating: 9,
     content: 'Good module',
@@ -44,16 +48,15 @@ describe('ModuleReviewsController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('creates a module review', async () => {
+  it('creates a module review for the current user', async () => {
     const dto: CreateModuleReviewDto = {
-      userId: review.userId,
       moduleCode: 'cs1010s',
       rating: 9,
       content: 'Good module',
     };
 
-    await expect(controller.create(dto)).resolves.toEqual(review);
-    expect(service.create).toHaveBeenCalledWith(dto);
+    await expect(controller.create(user, dto)).resolves.toEqual(review);
+    expect(service.create).toHaveBeenCalledWith(user.id, dto);
   });
 
   it('finds reviews by module', async () => {
@@ -66,15 +69,17 @@ describe('ModuleReviewsController', () => {
     expect(service.findOne).toHaveBeenCalledWith(review.id);
   });
 
-  it('updates a review', async () => {
+  it('updates a review for the current user', async () => {
     const dto: UpdateModuleReviewDto = { rating: 8 };
 
-    await expect(controller.update(review.id, dto)).resolves.toEqual(review);
-    expect(service.update).toHaveBeenCalledWith(review.id, dto);
+    await expect(controller.update(user, review.id, dto)).resolves.toEqual(
+      review,
+    );
+    expect(service.update).toHaveBeenCalledWith(user.id, review.id, dto);
   });
 
-  it('removes a review', async () => {
-    await expect(controller.remove(review.id)).resolves.toEqual(review);
-    expect(service.remove).toHaveBeenCalledWith(review.id);
+  it('removes a review for the current user', async () => {
+    await expect(controller.remove(user, review.id)).resolves.toEqual(review);
+    expect(service.remove).toHaveBeenCalledWith(user.id, review.id);
   });
 });

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePublicPlanDto } from './dto/create-public_plan.dto';
 import { Prisma, PublicPlan } from '@prisma/client';
@@ -7,9 +7,12 @@ import { Prisma, PublicPlan } from '@prisma/client';
 export class PublicPlansService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createPublicPlanDto: CreatePublicPlanDto): Promise<PublicPlan> {
+  async create(authorId: string, createPublicPlanDto: CreatePublicPlanDto): Promise<PublicPlan> {
     return this.prisma.publicPlan.create({
-      data: createPublicPlanDto,
+      data: {
+        ...createPublicPlanDto,
+        authorId,
+      },
     });
   }
 
@@ -41,9 +44,13 @@ export class PublicPlansService {
     return plan;
   }
 
-  async remove(id: string): Promise<PublicPlan> {
+  async remove(authorId: string, id: string): Promise<PublicPlan> {
     // Ensure the plan exists
-    await this.findOne(id); 
+    const plan = await this.findOne(id);
+
+    if (plan.authorId !== authorId) {
+      throw new ForbiddenException('You cannot delete this public plan.');
+    }
 
     return this.prisma.publicPlan.delete({
       where: { id },

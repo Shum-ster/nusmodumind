@@ -13,6 +13,10 @@ describe('PlannedModulesController', () => {
     remove: jest.Mock;
   };
 
+  const user = {
+    id: '33333333-3333-3333-3333-333333333333',
+    email: 'student@example.com',
+  };
   const plannedModule = {
     id: '11111111-1111-1111-1111-111111111111',
     semesterId: '22222222-2222-2222-2222-222222222222',
@@ -42,37 +46,37 @@ describe('PlannedModulesController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('creates a planned module', async () => {
+  it('creates a planned module for the current user', async () => {
     const dto: CreatePlannedModuleDto = {
       semesterId: plannedModule.semesterId,
       moduleCode: 'cs1010s',
       expectedGrade: 'A',
     };
 
-    await expect(controller.create(dto)).resolves.toEqual(plannedModule);
-    expect(service.create).toHaveBeenCalledWith(dto);
+    await expect(controller.create(user, dto)).resolves.toEqual(plannedModule);
+    expect(service.create).toHaveBeenCalledWith(user.id, dto);
   });
 
-  it('finds one planned module', async () => {
-    await expect(controller.findOne(plannedModule.id)).resolves.toEqual(
+  it('finds one planned module for the current user', async () => {
+    await expect(controller.findOne(user, plannedModule.id)).resolves.toEqual(
       plannedModule,
     );
-    expect(service.findOne).toHaveBeenCalledWith(plannedModule.id);
+    expect(service.findOne).toHaveBeenCalledWith(plannedModule.id, user.id);
   });
 
-  it('updates a planned module', async () => {
+  it('updates a planned module for the current user', async () => {
     const dto: UpdatePlannedModuleDto = { actualGrade: 'A-' };
 
-    await expect(controller.update(plannedModule.id, dto)).resolves.toEqual(
+    await expect(controller.update(user, plannedModule.id, dto)).resolves.toEqual(
       plannedModule,
     );
-    expect(service.update).toHaveBeenCalledWith(plannedModule.id, dto);
+    expect(service.update).toHaveBeenCalledWith(user.id, plannedModule.id, dto);
   });
 
-  it('removes a planned module', async () => {
-    await expect(controller.remove(plannedModule.id)).resolves.toEqual(
+  it('removes a planned module for the current user', async () => {
+    await expect(controller.remove(user, plannedModule.id)).resolves.toEqual(
       plannedModule,
     );
-    expect(service.remove).toHaveBeenCalledWith(plannedModule.id);
+    expect(service.remove).toHaveBeenCalledWith(user.id, plannedModule.id);
   });
 });

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateModuleReviewDto } from './dto/create-module_review.dto';
 import { UpdateModuleReviewDto } from './dto/update-module_review.dto';
@@ -8,10 +8,11 @@ import { ModuleReview } from '@prisma/client';
 export class ModuleReviewsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createModuleReviewDto: CreateModuleReviewDto): Promise<ModuleReview> {
+  async create(userId: string, createModuleReviewDto: CreateModuleReviewDto): Promise<ModuleReview> {
     return this.prisma.moduleReview.create({
       data: {
         ...createModuleReviewDto,
+        userId,
         moduleCode: createModuleReviewDto.moduleCode.toUpperCase(),
       },
     });
@@ -34,8 +35,13 @@ export class ModuleReviewsService {
     return review;
   }
 
-  async update(id: string, updateModuleReviewDto: UpdateModuleReviewDto): Promise<ModuleReview> {
-    await this.findOne(id);
+  async update(userId: string, id: string, updateModuleReviewDto: UpdateModuleReviewDto): Promise<ModuleReview> {
+    const review = await this.findOne(id);
+
+    if (review.userId !== userId) {
+      throw new ForbiddenException('You cannot update this review.');
+    }
+
     return this.prisma.moduleReview.update({
       where: { id },
       data: {
@@ -45,8 +51,13 @@ export class ModuleReviewsService {
     });
   }
 
-  async remove(id: string): Promise<ModuleReview> {
-    await this.findOne(id);
+  async remove(userId: string, id: string): Promise<ModuleReview> {
+    const review = await this.findOne(id);
+
+    if (review.userId !== userId) {
+      throw new ForbiddenException('You cannot delete this review.');
+    }
+
     return this.prisma.moduleReview.delete({
       where: { id },
     });

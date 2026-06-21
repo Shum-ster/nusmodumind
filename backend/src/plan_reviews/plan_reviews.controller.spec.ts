@@ -7,12 +7,18 @@ describe('PlanReviewsController', () => {
   let controller: PlanReviewsController;
   let service: {
     create: jest.Mock;
+    findByPlan: jest.Mock;
+    findOne: jest.Mock;
     remove: jest.Mock;
   };
 
+  const user = {
+    id: '22222222-2222-2222-2222-222222222222',
+    email: 'student@example.com',
+  };
   const review = {
     id: '11111111-1111-1111-1111-111111111111',
-    userId: '22222222-2222-2222-2222-222222222222',
+    userId: user.id,
     publicPlanId: '33333333-3333-3333-3333-333333333333',
     rating: 8,
     content: 'Helpful plan',
@@ -22,6 +28,8 @@ describe('PlanReviewsController', () => {
   beforeEach(async () => {
     service = {
       create: jest.fn().mockResolvedValue(review),
+      findByPlan: jest.fn().mockResolvedValue([review]),
+      findOne: jest.fn().mockResolvedValue(review),
       remove: jest.fn().mockResolvedValue(review),
     };
 
@@ -37,20 +45,31 @@ describe('PlanReviewsController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('creates a plan review', async () => {
+  it('creates a plan review for the current user', async () => {
     const dto: CreatePlanReviewDto = {
-      userId: review.userId,
       publicPlanId: review.publicPlanId,
       rating: 8,
       content: 'Helpful plan',
     };
 
-    await expect(controller.create(dto)).resolves.toEqual(review);
-    expect(service.create).toHaveBeenCalledWith(dto);
+    await expect(controller.create(user, dto)).resolves.toEqual(review);
+    expect(service.create).toHaveBeenCalledWith(user.id, dto);
   });
 
-  it('removes a plan review', async () => {
-    await expect(controller.remove(review.id)).resolves.toEqual(review);
-    expect(service.remove).toHaveBeenCalledWith(review.id);
+  it('finds reviews by public plan', async () => {
+    await expect(controller.findByPlan(review.publicPlanId)).resolves.toEqual([
+      review,
+    ]);
+    expect(service.findByPlan).toHaveBeenCalledWith(review.publicPlanId);
+  });
+
+  it('finds one plan review', async () => {
+    await expect(controller.findOne(review.id)).resolves.toEqual(review);
+    expect(service.findOne).toHaveBeenCalledWith(review.id);
+  });
+
+  it('removes a plan review for the current user', async () => {
+    await expect(controller.remove(user, review.id)).resolves.toEqual(review);
+    expect(service.remove).toHaveBeenCalledWith(user.id, review.id);
   });
 });

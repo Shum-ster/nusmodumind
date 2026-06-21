@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { ModuleReviewsService } from './module_reviews.service';
@@ -49,10 +49,9 @@ describe('ModuleReviewsService', () => {
     expect(service).toBeDefined();
   });
 
-  it('creates a module review with uppercase module code', async () => {
+  it('creates a module review with uppercase module code for the current user', async () => {
     await expect(
-      service.create({
-        userId: review.userId,
+      service.create(review.userId, {
         moduleCode: 'cs1010s',
         rating: 9,
         content: 'Good module',
@@ -91,9 +90,12 @@ describe('ModuleReviewsService', () => {
     );
   });
 
-  it('updates an existing review with uppercase module code', async () => {
+  it('updates an existing review with uppercase module code for the owner', async () => {
     await expect(
-      service.update(review.id, { moduleCode: 'ma1521', rating: 8 }),
+      service.update(review.userId, review.id, {
+        moduleCode: 'ma1521',
+        rating: 8,
+      }),
     ).resolves.toEqual(review);
     expect(prisma.moduleReview.update).toHaveBeenCalledWith({
       where: { id: review.id },
@@ -104,8 +106,18 @@ describe('ModuleReviewsService', () => {
     });
   });
 
-  it('removes an existing review', async () => {
-    await expect(service.remove(review.id)).resolves.toEqual(review);
+  it('rejects review updates by another user', async () => {
+    await expect(
+      service.update('33333333-3333-3333-3333-333333333333', review.id, {
+        rating: 8,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('removes an existing review for the owner', async () => {
+    await expect(service.remove(review.userId, review.id)).resolves.toEqual(
+      review,
+    );
     expect(prisma.moduleReview.delete).toHaveBeenCalledWith({
       where: { id: review.id },
     });

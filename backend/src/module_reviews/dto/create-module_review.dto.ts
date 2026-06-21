@@ -1,9 +1,6 @@
-import { IsString, IsInt, Min, Max, IsUUID, IsNotEmpty } from 'class-validator';
+import { IsString, IsInt, Min, Max, IsNotEmpty } from 'class-validator';
 
 export class CreateModuleReviewDto {
-  @IsUUID()
-  userId: string;
-
   @IsString()
   @IsNotEmpty()
   moduleCode: string;

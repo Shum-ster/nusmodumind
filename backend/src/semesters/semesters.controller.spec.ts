@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { SemestersController } from './semesters.controller';
 import { SemestersService } from './semesters.service';
@@ -14,11 +15,15 @@ describe('SemestersController', () => {
     remove: jest.Mock;
   };
 
+  const user = {
+    id: '22222222-2222-2222-2222-222222222222',
+    email: 'student@example.com',
+  };
   const semester = {
     id: '11111111-1111-1111-1111-111111111111',
     acadYear: '2026/2027',
     semesterNumber: 1,
-    userId: '22222222-2222-2222-2222-222222222222',
+    userId: user.id,
   };
 
   beforeEach(async () => {
@@ -42,38 +47,49 @@ describe('SemestersController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('creates a semester', async () => {
+  it('creates a semester for the current user', async () => {
     const dto: CreateSemesterDto = {
       acadYear: '2026/2027',
       semesterNumber: 1,
-      userId: semester.userId,
     };
 
-    await expect(controller.create(dto)).resolves.toEqual(semester);
-    expect(service.create).toHaveBeenCalledWith(dto);
+    await expect(controller.create(user, dto)).resolves.toEqual(semester);
+    expect(service.create).toHaveBeenCalledWith(user.id, dto);
   });
 
-  it('finds a user plan', async () => {
-    await expect(controller.findUserPlan(semester.userId)).resolves.toEqual([
+  it('finds the current user plan', async () => {
+    await expect(controller.findUserPlan(user, user.id)).resolves.toEqual([
       semester,
     ]);
-    expect(service.findUserPlan).toHaveBeenCalledWith(semester.userId);
+    expect(service.findUserPlan).toHaveBeenCalledWith(user.id);
   });
 
-  it('finds one semester', async () => {
-    await expect(controller.findOne(semester.id)).resolves.toEqual(semester);
-    expect(service.findOne).toHaveBeenCalledWith(semester.id);
+  it('rejects access to another user plan', () => {
+    expect(() =>
+      controller.findUserPlan(user, '33333333-3333-3333-3333-333333333333'),
+    ).toThrow(ForbiddenException);
   });
 
-  it('updates a semester', async () => {
+  it('finds one semester for the current user', async () => {
+    await expect(controller.findOne(user, semester.id)).resolves.toEqual(
+      semester,
+    );
+    expect(service.findOne).toHaveBeenCalledWith(semester.id, user.id);
+  });
+
+  it('updates a semester for the current user', async () => {
     const dto: UpdateSemesterDto = { semesterNumber: 2 };
 
-    await expect(controller.update(semester.id, dto)).resolves.toEqual(semester);
-    expect(service.update).toHaveBeenCalledWith(semester.id, dto);
+    await expect(controller.update(user, semester.id, dto)).resolves.toEqual(
+      semester,
+    );
+    expect(service.update).toHaveBeenCalledWith(semester.id, user.id, dto);
   });
 
-  it('removes a semester', async () => {
-    await expect(controller.remove(semester.id)).resolves.toEqual(semester);
-    expect(service.remove).toHaveBeenCalledWith(semester.id);
+  it('removes a semester for the current user', async () => {
+    await expect(controller.remove(user, semester.id)).resolves.toEqual(
+      semester,
+    );
+    expect(service.remove).toHaveBeenCalledWith(semester.id, user.id);
   });
 });

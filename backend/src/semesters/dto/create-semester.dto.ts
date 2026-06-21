@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsUUID, IsNotEmpty, Min, Max } from 'class-validator';
+import { IsString, IsInt, IsNotEmpty, Min, Max } from 'class-validator';
 
 export class CreateSemesterDto {
   @IsString()
@@ -10,6 +10,4 @@ export class CreateSemesterDto {
   @Max(4) // Sem 1, Sem 2, Special Term 1, Special Term 2
   semesterNumber: number;
 
-  @IsUUID()
-  userId: string;
 }

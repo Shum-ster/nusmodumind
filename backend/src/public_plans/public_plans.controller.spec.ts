@@ -12,9 +12,13 @@ describe('PublicPlansController', () => {
     remove: jest.Mock;
   };
 
+  const user = {
+    id: '22222222-2222-2222-2222-222222222222',
+    email: 'student@example.com',
+  };
   const plan = {
     id: '11111111-1111-1111-1111-111111111111',
-    authorId: '22222222-2222-2222-2222-222222222222',
+    authorId: user.id,
     title: 'Four-year CS plan',
     description: 'Balanced workload',
     planSnapshot: { semesters: [] },
@@ -42,16 +46,15 @@ describe('PublicPlansController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('creates a public plan', async () => {
+  it('creates a public plan for the current user', async () => {
     const dto: CreatePublicPlanDto = {
-      authorId: plan.authorId,
       title: plan.title,
       description: plan.description,
       planSnapshot: plan.planSnapshot,
     };
 
-    await expect(controller.create(dto)).resolves.toEqual(plan);
-    expect(service.create).toHaveBeenCalledWith(dto);
+    await expect(controller.create(user, dto)).resolves.toEqual(plan);
+    expect(service.create).toHaveBeenCalledWith(user.id, dto);
   });
 
   it('finds all public plans', async () => {
@@ -64,8 +67,8 @@ describe('PublicPlansController', () => {
     expect(service.findOne).toHaveBeenCalledWith(plan.id);
   });
 
-  it('removes a public plan', async () => {
-    await expect(controller.remove(plan.id)).resolves.toEqual(plan);
-    expect(service.remove).toHaveBeenCalledWith(plan.id);
+  it('removes a public plan for the current user', async () => {
+    await expect(controller.remove(user, plan.id)).resolves.toEqual(plan);
+    expect(service.remove).toHaveBeenCalledWith(user.id, plan.id);
   });
 });

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicPlansService } from './public_plans.service';
@@ -48,16 +48,17 @@ describe('PublicPlansService', () => {
     expect(service).toBeDefined();
   });
 
-  it('creates a public plan', async () => {
+  it('creates a public plan for the current user', async () => {
     const data = {
-      authorId: plan.authorId,
       title: plan.title,
       description: plan.description,
       planSnapshot: plan.planSnapshot,
     };
 
-    await expect(service.create(data)).resolves.toEqual(plan);
-    expect(prisma.publicPlan.create).toHaveBeenCalledWith({ data });
+    await expect(service.create(plan.authorId, data)).resolves.toEqual(plan);
+    expect(prisma.publicPlan.create).toHaveBeenCalledWith({
+      data: { ...data, authorId: plan.authorId },
+    });
   });
 
   it('finds all public plans ordered by upvotes with author email', async () => {
@@ -92,10 +93,16 @@ describe('PublicPlansService', () => {
     );
   });
 
-  it('removes an existing public plan', async () => {
-    await expect(service.remove(plan.id)).resolves.toEqual(plan);
+  it('removes an existing public plan for the author', async () => {
+    await expect(service.remove(plan.authorId, plan.id)).resolves.toEqual(plan);
     expect(prisma.publicPlan.delete).toHaveBeenCalledWith({
       where: { id: plan.id },
     });
+  });
+
+  it('rejects deleting another user public plan', async () => {
+    await expect(
+      service.remove('33333333-3333-3333-3333-333333333333', plan.id),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

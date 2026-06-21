@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { SemestersService } from './semesters.service';
@@ -47,15 +47,18 @@ describe('SemestersService', () => {
     expect(service).toBeDefined();
   });
 
-  it('creates a semester', async () => {
+  it('creates a semester with the current user id', async () => {
     const data = {
       acadYear: '2026/2027',
       semesterNumber: 1,
-      userId: semester.userId,
     };
 
-    await expect(service.create(data)).resolves.toEqual(semester);
-    expect(prisma.semester.create).toHaveBeenCalledWith({ data });
+    await expect(service.create(semester.userId, data)).resolves.toEqual(
+      semester,
+    );
+    expect(prisma.semester.create).toHaveBeenCalledWith({
+      data: { ...data, userId: semester.userId },
+    });
   });
 
   it('finds a user plan ordered by academic period with planned modules', async () => {
@@ -75,8 +78,10 @@ describe('SemestersService', () => {
     });
   });
 
-  it('finds one semester with planned modules', async () => {
-    await expect(service.findOne(semester.id)).resolves.toEqual(semester);
+  it('finds one semester with planned modules for the owner', async () => {
+    await expect(service.findOne(semester.id, semester.userId)).resolves.toEqual(
+      semester,
+    );
     expect(prisma.semester.findUnique).toHaveBeenCalledWith({
       where: { id: semester.id },
       include: { plannedModules: true },
@@ -86,23 +91,31 @@ describe('SemestersService', () => {
   it('throws when a semester does not exist', async () => {
     prisma.semester.findUnique.mockResolvedValue(null);
 
-    await expect(service.findOne(semester.id)).rejects.toBeInstanceOf(
+    await expect(service.findOne(semester.id, semester.userId)).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
 
-  it('updates an existing semester', async () => {
-    await expect(service.update(semester.id, { semesterNumber: 2 })).resolves.toEqual(
-      semester,
-    );
+  it('throws when the semester belongs to another user', async () => {
+    await expect(
+      service.findOne(semester.id, '33333333-3333-3333-3333-333333333333'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('updates an existing semester for the owner', async () => {
+    await expect(
+      service.update(semester.id, semester.userId, { semesterNumber: 2 }),
+    ).resolves.toEqual(semester);
     expect(prisma.semester.update).toHaveBeenCalledWith({
       where: { id: semester.id },
       data: { semesterNumber: 2 },
     });
   });
 
-  it('removes an existing semester', async () => {
-    await expect(service.remove(semester.id)).resolves.toEqual(semester);
+  it('removes an existing semester for the owner', async () => {
+    await expect(service.remove(semester.id, semester.userId)).resolves.toEqual(
+      semester,
+    );
     expect(prisma.semester.delete).toHaveBeenCalledWith({
       where: { id: semester.id },
     });

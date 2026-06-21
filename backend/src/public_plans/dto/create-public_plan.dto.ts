@@ -1,9 +1,6 @@
-import { IsString, IsUUID, IsNotEmpty, IsObject, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsObject, IsOptional } from 'class-validator';
 
 export class CreatePublicPlanDto {
-  @IsUUID()
-  authorId: string;
-
   @IsString()
   @IsNotEmpty()
   title: string;

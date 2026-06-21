@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ModuleReviewsService } from './module_reviews.service';
 import { CreateModuleReviewDto } from './dto/create-module_review.dto';
 import { UpdateModuleReviewDto } from './dto/update-module_review.dto';
@@ -7,9 +9,13 @@ import { UpdateModuleReviewDto } from './dto/update-module_review.dto';
 export class ModuleReviewsController {
   constructor(private readonly moduleReviewsService: ModuleReviewsService) {}
 
+  @UseGuards(AuthGuard('jwt'))
   @Post()
-  create(@Body() createModuleReviewDto: CreateModuleReviewDto) {
-    return this.moduleReviewsService.create(createModuleReviewDto);
+  create(
+    @CurrentUser() user: { id: string; email: string },
+    @Body() createModuleReviewDto: CreateModuleReviewDto,
+  ) {
+    return this.moduleReviewsService.create(user.id, createModuleReviewDto);
   }
 
   @Get('module/:moduleCode')
@@ -22,13 +28,22 @@ export class ModuleReviewsController {
     return this.moduleReviewsService.findOne(id);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateModuleReviewDto: UpdateModuleReviewDto) {
-    return this.moduleReviewsService.update(id, updateModuleReviewDto);
+  update(
+    @CurrentUser() user: { id: string; email: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateModuleReviewDto: UpdateModuleReviewDto,
+  ) {
+    return this.moduleReviewsService.update(user.id, id, updateModuleReviewDto);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.moduleReviewsService.remove(id);
+  remove(
+    @CurrentUser() user: { id: string; email: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.moduleReviewsService.remove(user.id, id);
   }
 }
