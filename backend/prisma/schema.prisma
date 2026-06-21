@@ -15,6 +15,9 @@ model User {
   id            String         @id @default(uuid()) @db.Uuid
   email         String         @unique
   passwordHash  String         @map("password_hash")
+  username      String?
+  faculty       String?
+  degree        String?
 
   semesters     Semester[]
   moduleReviews ModuleReview[]
@@ -25,20 +28,23 @@ model User {
 }
 
 model NusModule {
-  moduleCode    String   @id @map("module_code")
-  title         String
-  description   String?
-  moduleCredit  Int      @map("module_credit")
-  department    String
-  faculty       String
-  prerequisite  String?
-  preclusion    String?
-  workload      String?
-  semesterData  Json?    @map("semester_data")
-  lastUpdated   DateTime @default(now()) @updatedAt @map("last_updated")
+  moduleCode              String   @id @map("module_code")
+  title                   String
+  description             String?  
+  moduleCredit            String   @map("module_credit")
+  department              String?
+  faculty                 String
+  gradingBasisDescription String?  @map("grading_basis_description")
+  prerequisite            String?
+  preclusion              String?
+  corequisite             String?
+  workload                Json?    
+  semesterData            Json?    @map("semester_data")
+  attributes              Json?
+  lastUpdated             DateTime @default(now()) @updatedAt @map("last_updated")
 
-  plannedModules PlannedModule[]
-  moduleReviews  ModuleReview[]
+  plannedModules          PlannedModule[]
+  moduleReviews           ModuleReview[]
 
   @@map("nus_modules")
 }

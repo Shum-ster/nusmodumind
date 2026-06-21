@@ -44,21 +44,20 @@ export class NusModulesCronService {
         const batch = modules.slice(i, i + BATCH_SIZE);
 
         const upsertPromises = batch.map((mod) => {
-          const creditInt = parseInt(mod.moduleCredit, 10);
-          const parsedCredit = isNaN(creditInt) ? 0 : creditInt;
-
           // Map NUSMods data to your Prisma schema
           const moduleData = {
             title: mod.title,
-            description: mod.description ?? null,
-            moduleCredit: parsedCredit,
-            department: mod.department ?? 'Unknown',
+            description: mod.description ?? '',
+            moduleCredit: mod.moduleCredit ?? '',
+            department: mod.department ?? null,
             faculty: mod.faculty ?? 'Unknown',
+            gradingBasisDescription: mod.gradingBasisDescription ?? 'Unknown',
             prerequisite: mod.prerequisite ?? null,
             preclusion: mod.preclusion ?? null,
-            // NUSMods returns workload as an array or string, stringify for db
-            workload: mod.workload ? JSON.stringify(mod.workload) : null,
-            semesterData: mod.semesterData ?? null,
+            corequisite: mod.corequisite ?? null,
+            workload: mod.workload ?? null,
+            semesterData: mod.semesterData ?? [],
+            attributes: mod.attributes ?? null,
           };
 
           return this.prisma.nusModule.upsert({

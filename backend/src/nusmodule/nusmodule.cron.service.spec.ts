@@ -19,10 +19,13 @@ describe('NusModulesCronService', () => {
     moduleCredit: '4',
     department: 'Computer Science',
     faculty: 'School of Computing',
+    gradingBasisDescription: 'Graded',
     prerequisite: null,
     preclusion: null,
+    corequisite: 'CS1231S',
     workload: [2, 1, 1, 3, 3],
-    semesterData: [{ semester: 1 }],
+    semesterData: [{ semester: 1, examDate: '2026-05-01T09:00:00.000Z' }],
+    attributes: { su: true },
   };
 
   beforeEach(async () => {
@@ -51,7 +54,7 @@ describe('NusModulesCronService', () => {
     expect(service).toBeDefined();
   });
 
-  it('fetches NUSMods data and upserts it into Prisma', async () => {
+  it('fetches NUSMods data and upserts all current top-level fields into Prisma', async () => {
     httpService.get.mockReturnValue(of({ data: [moduleInfo] }));
 
     await service.syncNusModsData();
@@ -59,13 +62,16 @@ describe('NusModulesCronService', () => {
     const expectedModuleData = {
       title: moduleInfo.title,
       description: moduleInfo.description,
-      moduleCredit: 4,
+      moduleCredit: moduleInfo.moduleCredit,
       department: moduleInfo.department,
       faculty: moduleInfo.faculty,
+      gradingBasisDescription: moduleInfo.gradingBasisDescription,
       prerequisite: moduleInfo.prerequisite,
       preclusion: moduleInfo.preclusion,
-      workload: JSON.stringify(moduleInfo.workload),
+      corequisite: moduleInfo.corequisite,
+      workload: moduleInfo.workload,
       semesterData: moduleInfo.semesterData,
+      attributes: moduleInfo.attributes,
     };
 
     expect(httpService.get).toHaveBeenCalledWith(
@@ -80,6 +86,29 @@ describe('NusModulesCronService', () => {
       },
     });
     expect(prisma.$transaction).toHaveBeenCalledWith([{ kind: 'upsert' }]);
+  });
+
+  it('keeps modules with empty semesterData', async () => {
+    httpService.get.mockReturnValue(
+      of({
+        data: [
+          {
+            ...moduleInfo,
+            semesterData: [],
+          },
+        ],
+      }),
+    );
+
+    await service.syncNusModsData();
+
+    expect(prisma.nusModule.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          semesterData: [],
+        }),
+      }),
+    );
   });
 
   it('processes upserts in 500-module batches', async () => {
@@ -103,11 +132,17 @@ describe('NusModulesCronService', () => {
         data: [
           {
             ...moduleInfo,
+            description: undefined,
             department: undefined,
             faculty: undefined,
+            gradingBasisDescription: undefined,
+            moduleCredit: undefined,
             prerequisite: undefined,
             preclusion: undefined,
+            corequisite: undefined,
+            workload: undefined,
             semesterData: undefined,
+            attributes: undefined,
           },
         ],
       }),
@@ -118,11 +153,17 @@ describe('NusModulesCronService', () => {
     expect(prisma.nusModule.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({
-          department: 'Unknown',
+          description: '',
+          department: null,
           faculty: 'Unknown',
+          gradingBasisDescription: 'Unknown',
+          moduleCredit: '',
           prerequisite: null,
           preclusion: null,
-          semesterData: null,
+          corequisite: null,
+          workload: null,
+          semesterData: [],
+          attributes: null,
         }),
       }),
     );

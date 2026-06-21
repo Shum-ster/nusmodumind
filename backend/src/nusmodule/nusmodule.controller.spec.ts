@@ -9,20 +9,37 @@ describe('NusmoduleController', () => {
   const nusModule = {
     moduleCode: 'CS1010S',
     title: 'Programming Methodology',
-    description: null,
-    moduleCredit: 4,
+    description: 'Introductory programming module',
+    moduleCredit: '4',
     department: 'Computer Science',
     faculty: 'School of Computing',
+    gradingBasisDescription: 'Graded',
     prerequisite: null,
     preclusion: null,
-    workload: null,
-    semesterData: null,
+    corequisite: null,
+    workload: [2, 1, 1, 3, 3],
+    semesterData: [{ semester: 1 }],
+    attributes: null,
     lastUpdated: new Date('2026-01-01T00:00:00.000Z'),
+  };
+
+  const paginatedResponse = {
+    items: [
+      {
+        moduleCode: nusModule.moduleCode,
+        title: nusModule.title,
+        faculty: nusModule.faculty,
+        department: nusModule.department,
+        moduleCredit: nusModule.moduleCredit,
+        gradingBasisDescription: nusModule.gradingBasisDescription,
+      },
+    ],
+    nextCursor: null,
   };
 
   beforeEach(async () => {
     service = {
-      findAll: jest.fn().mockResolvedValue([nusModule]),
+      findAll: jest.fn().mockResolvedValue(paginatedResponse),
       findOne: jest.fn().mockResolvedValue(nusModule),
     };
 
@@ -38,8 +55,35 @@ describe('NusmoduleController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('returns all NUS modules', async () => {
-    await expect(controller.findAll()).resolves.toEqual([nusModule]);
+  it('returns paginated NUS modules', async () => {
+    await expect(
+      controller.findAll(
+        'CS1010S',
+        'Computer Science',
+        'School of Computing',
+        '25',
+        'programming',
+      ),
+    ).resolves.toEqual(paginatedResponse);
+    expect(service.findAll).toHaveBeenCalledWith({
+      cursor: 'CS1010S',
+      department: 'Computer Science',
+      faculty: 'School of Computing',
+      limit: 25,
+      search: 'programming',
+    });
+  });
+
+  it('ignores invalid limit values', async () => {
+    await controller.findAll(undefined, undefined, undefined, 'invalid');
+
+    expect(service.findAll).toHaveBeenCalledWith({
+      cursor: undefined,
+      department: undefined,
+      faculty: undefined,
+      limit: undefined,
+      search: undefined,
+    });
   });
 
   it('normalizes module code before lookup', async () => {

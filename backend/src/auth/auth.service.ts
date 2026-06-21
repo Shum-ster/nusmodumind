@@ -30,8 +30,10 @@ export class AuthService {
       passwordHash: hashedPassword,
     });
 
-    const { passwordHash: _, ...userWithoutPassword } = newUser;
-    return userWithoutPassword;
+    return {
+      id: newUser.id,
+      email: newUser.email,
+    };
   }
   
   async validateUser(email: string, pass: string): Promise<any> {
@@ -40,8 +42,10 @@ export class AuthService {
     if (user) {
       const isMatch = await bcrypt.compare(pass, user.passwordHash);
       if (isMatch) {
-        const { passwordHash, ...result } = user;
-        return result;
+        return {
+          id: user.id,
+          email: user.email,
+        };
       }
     }
     
