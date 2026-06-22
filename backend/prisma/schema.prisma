@@ -20,6 +20,7 @@ model User {
   degree        String?
 
   semesters     Semester[]
+  plannedModules PlannedModule[]
   moduleReviews ModuleReview[]
   publicPlans   PublicPlan[]   @relation("AuthoredPlans")
   planReviews   PlanReview[]
@@ -62,17 +63,28 @@ model Semester {
 }
 
 model PlannedModule {
-  id              String    @id @default(uuid()) @db.Uuid
-  semesterId      String    @map("semester_id") @db.Uuid
-  moduleCode      String    @map("module_code")
-  expectedGrade   String?   @map("expected_grade")
-  actualGrade     String?   @map("actual_grade")
-  selectedLessons Json?     @map("selected_lessons")
+  id              String              @id @default(uuid()) @db.Uuid
+  semesterId      String?             @map("semester_id") @db.Uuid
+  userId          String              @map("user_id") @db.Uuid
+  moduleCode      String              @map("module_code")
+  status          PlannedModuleStatus @default(SELECTED)
+  expectedGrade   String?             @map("expected_grade")
+  actualGrade     String?             @map("actual_grade")
+  selectedLessons Json?               @map("selected_lessons")
 
-  semester        Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-  module          NusModule @relation(fields: [moduleCode], references: [moduleCode], onDelete: Restrict)
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  semester        Semester?           @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  module          NusModule           @relation(fields: [moduleCode], references: [moduleCode], onDelete: Restrict)
 
+  @@index([userId])
+  @@index([status])
   @@map("planned_modules")
+}
+
+enum PlannedModuleStatus {
+  SELECTED
+  EXEMPTED
+  PLANNED
 }
 
 model ModuleReview {

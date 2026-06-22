@@ -13,6 +13,10 @@ describe('SemestersService', () => {
       update: jest.Mock;
       delete: jest.Mock;
     };
+    plannedModule: {
+      findMany: jest.Mock;
+    };
+    $transaction: jest.Mock;
   };
 
   const semester = {
@@ -20,6 +24,13 @@ describe('SemestersService', () => {
     acadYear: '2026/2027',
     semesterNumber: 1,
     userId: '22222222-2222-2222-2222-222222222222',
+  };
+  const plannedModule = {
+    id: '33333333-3333-3333-3333-333333333333',
+    semesterId: semester.id,
+    userId: semester.userId,
+    moduleCode: 'CS1010S',
+    status: 'PLANNED',
   };
 
   beforeEach(async () => {
@@ -31,6 +42,10 @@ describe('SemestersService', () => {
         update: jest.fn().mockResolvedValue(semester),
         delete: jest.fn().mockResolvedValue(semester),
       },
+      plannedModule: {
+        findMany: jest.fn().mockResolvedValue([plannedModule]),
+      },
+      $transaction: jest.fn((queries) => Promise.all(queries)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -74,6 +89,25 @@ describe('SemestersService', () => {
             module: true,
           },
         },
+      },
+    });
+  });
+
+  it('finds the current user plan with semesters and planned modules', async () => {
+    await expect(service.findCurrentUserPlan(semester.userId)).resolves.toEqual({
+      semesters: [semester],
+      plannedModules: [plannedModule],
+    });
+    expect(prisma.semester.findMany).toHaveBeenCalledWith({
+      where: { userId: semester.userId },
+      orderBy: [{ acadYear: 'asc' }, { semesterNumber: 'asc' }],
+    });
+    expect(prisma.plannedModule.findMany).toHaveBeenCalledWith({
+      where: { userId: semester.userId },
+      orderBy: [{ status: 'asc' }, { moduleCode: 'asc' }],
+      include: {
+        module: true,
+        semester: true,
       },
     });
   });

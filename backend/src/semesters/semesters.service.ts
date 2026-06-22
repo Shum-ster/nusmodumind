@@ -34,6 +34,31 @@ export class SemestersService {
     });
   }
 
+  async findCurrentUserPlan(userId: string) {
+    const [semesters, plannedModules] = await this.prisma.$transaction([
+      this.prisma.semester.findMany({
+        where: { userId },
+        orderBy: [
+          { acadYear: 'asc' },
+          { semesterNumber: 'asc' },
+        ],
+      }),
+      this.prisma.plannedModule.findMany({
+        where: { userId },
+        orderBy: [{ status: 'asc' }, { moduleCode: 'asc' }],
+        include: {
+          module: true,
+          semester: true,
+        },
+      }),
+    ]);
+
+    return {
+      semesters,
+      plannedModules,
+    };
+  }
+
   async findOne(id: string, userId?: string): Promise<Semester> {
     const semester = await this.prisma.semester.findUnique({
       where: { id },

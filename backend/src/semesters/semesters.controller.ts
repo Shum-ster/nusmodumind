@@ -19,6 +19,12 @@ export class SemestersController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('me/plan')
+  findCurrentUserPlan(@CurrentUser() user: { id: string; email: string }) {
+    return this.semestersService.findCurrentUserPlan(user.id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('user/:userId')
   findUserPlan(
     @CurrentUser() user: { id: string; email: string },

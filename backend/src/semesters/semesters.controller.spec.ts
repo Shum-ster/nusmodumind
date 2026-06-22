@@ -9,6 +9,7 @@ describe('SemestersController', () => {
   let controller: SemestersController;
   let service: {
     create: jest.Mock;
+    findCurrentUserPlan: jest.Mock;
     findUserPlan: jest.Mock;
     findOne: jest.Mock;
     update: jest.Mock;
@@ -29,6 +30,10 @@ describe('SemestersController', () => {
   beforeEach(async () => {
     service = {
       create: jest.fn().mockResolvedValue(semester),
+      findCurrentUserPlan: jest.fn().mockResolvedValue({
+        semesters: [semester],
+        plannedModules: [],
+      }),
       findUserPlan: jest.fn().mockResolvedValue([semester]),
       findOne: jest.fn().mockResolvedValue(semester),
       update: jest.fn().mockResolvedValue(semester),
@@ -58,6 +63,14 @@ describe('SemestersController', () => {
   });
 
   it('finds the current user plan', async () => {
+    await expect(controller.findCurrentUserPlan(user)).resolves.toEqual({
+      semesters: [semester],
+      plannedModules: [],
+    });
+    expect(service.findCurrentUserPlan).toHaveBeenCalledWith(user.id);
+  });
+
+  it('finds the current user semesters by user id', async () => {
     await expect(controller.findUserPlan(user, user.id)).resolves.toEqual([
       semester,
     ]);

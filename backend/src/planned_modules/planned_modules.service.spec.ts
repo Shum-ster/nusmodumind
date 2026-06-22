@@ -1,7 +1,13 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PlannedModuleStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlannedModulesService } from './planned_modules.service';
+import { PlannedModuleStatusDto } from './dto/create-planned_module.dto';
 
 describe('PlannedModulesService', () => {
   let service: PlannedModulesService;
@@ -25,7 +31,9 @@ describe('PlannedModulesService', () => {
   const plannedModule = {
     id: '11111111-1111-1111-1111-111111111111',
     semesterId: semester.id,
+    userId,
     moduleCode: 'CS1010S',
+    status: PlannedModuleStatus.PLANNED,
     expectedGrade: 'A',
     actualGrade: null,
     selectedLessons: null,
@@ -72,12 +80,78 @@ describe('PlannedModulesService', () => {
       select: { userId: true },
     });
     expect(prisma.plannedModule.create).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         semesterId: plannedModule.semesterId,
+        userId,
         moduleCode: 'CS1010S',
+        status: PlannedModuleStatus.PLANNED,
         expectedGrade: 'A',
-      },
+      }),
+      include: { module: true, semester: true },
     });
+  });
+
+  it('creates a selected module without semesterId', async () => {
+    const selectedModule = {
+      ...plannedModule,
+      semesterId: null,
+      status: PlannedModuleStatus.SELECTED,
+      semester: null,
+    };
+    prisma.plannedModule.create.mockResolvedValue(selectedModule);
+
+    await expect(
+      service.create(userId, {
+        moduleCode: 'cs1010s',
+        status: PlannedModuleStatusDto.SELECTED,
+      }),
+    ).resolves.toEqual(selectedModule);
+    expect(prisma.semester.findUnique).not.toHaveBeenCalled();
+    expect(prisma.plannedModule.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        semesterId: null,
+        userId,
+        moduleCode: 'CS1010S',
+        status: PlannedModuleStatus.SELECTED,
+      }),
+      include: { module: true, semester: true },
+    });
+  });
+
+  it('creates an exempted module without semesterId', async () => {
+    const exemptedModule = {
+      ...plannedModule,
+      semesterId: null,
+      status: PlannedModuleStatus.EXEMPTED,
+      semester: null,
+    };
+    prisma.plannedModule.create.mockResolvedValue(exemptedModule);
+
+    await expect(
+      service.create(userId, {
+        moduleCode: 'cs1010s',
+        status: PlannedModuleStatusDto.EXEMPTED,
+      }),
+    ).resolves.toEqual(exemptedModule);
+    expect(prisma.plannedModule.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        semesterId: null,
+        userId,
+        moduleCode: 'CS1010S',
+        status: PlannedModuleStatus.EXEMPTED,
+      }),
+      include: { module: true, semester: true },
+    });
+  });
+
+  it('rejects planned modules without semesterId', async () => {
+    await expect(
+      service.create(userId, {
+        moduleCode: 'cs1010s',
+        status: PlannedModuleStatusDto.PLANNED,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.plannedModule.create).not.toHaveBeenCalled();
   });
 
   it('rejects creating a planned module in another user semester', async () => {
@@ -126,11 +200,44 @@ describe('PlannedModulesService', () => {
     ).resolves.toEqual(plannedModule);
     expect(prisma.plannedModule.update).toHaveBeenCalledWith({
       where: { id: plannedModule.id },
-      data: {
+      data: expect.objectContaining({
+        semesterId: plannedModule.semesterId,
+        userId,
         moduleCode: 'MA1521',
+        status: PlannedModuleStatus.PLANNED,
         actualGrade: 'A-',
-      },
+      }),
+      include: { module: true, semester: true },
     });
+  });
+
+  it('moves a planned module to selected and clears semesterId', async () => {
+    await service.update(userId, plannedModule.id, {
+      status: PlannedModuleStatusDto.SELECTED,
+      semesterId: null,
+    });
+
+    expect(prisma.plannedModule.update).toHaveBeenCalledWith({
+      where: { id: plannedModule.id },
+      data: expect.objectContaining({
+        semesterId: null,
+        status: PlannedModuleStatus.SELECTED,
+      }),
+      include: { module: true, semester: true },
+    });
+  });
+
+  it('rejects moving a module into another user semester', async () => {
+    prisma.semester.findUnique.mockResolvedValue({
+      userId: '44444444-4444-4444-4444-444444444444',
+    });
+
+    await expect(
+      service.update(userId, plannedModule.id, {
+        status: PlannedModuleStatusDto.PLANNED,
+        semesterId: '55555555-5555-5555-5555-555555555555',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('removes an existing planned module for the owner', async () => {

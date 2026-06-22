@@ -1,12 +1,30 @@
-import { IsString, IsUUID, IsOptional, IsNotEmpty, IsObject } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+
+export enum PlannedModuleStatusDto {
+  SELECTED = 'SELECTED',
+  EXEMPTED = 'EXEMPTED',
+  PLANNED = 'PLANNED',
+}
 
 export class CreatePlannedModuleDto {
   @IsUUID()
-  semesterId: string;
+  @IsOptional()
+  semesterId?: string | null;
 
   @IsString()
   @IsNotEmpty()
   moduleCode: string;
+
+  @IsEnum(PlannedModuleStatusDto)
+  @IsOptional()
+  status?: PlannedModuleStatusDto;
 
   @IsString()
   @IsOptional()

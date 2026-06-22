@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { PlannedModuleStatus } from '@prisma/client';
 import { PlannedModulesController } from './planned_modules.controller';
 import { PlannedModulesService } from './planned_modules.service';
 import { CreatePlannedModuleDto } from './dto/create-planned_module.dto';
@@ -20,7 +21,9 @@ describe('PlannedModulesController', () => {
   const plannedModule = {
     id: '11111111-1111-1111-1111-111111111111',
     semesterId: '22222222-2222-2222-2222-222222222222',
+    userId: user.id,
     moduleCode: 'CS1010S',
+    status: PlannedModuleStatus.PLANNED,
     expectedGrade: 'A',
     actualGrade: null,
     selectedLessons: null,
