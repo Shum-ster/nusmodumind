@@ -13,13 +13,16 @@ describe('JwtStrategy', () => {
     expect(configService.getOrThrow).toHaveBeenCalledWith('JWT_SECRET');
   });
 
-  it('maps the JWT payload to the current user shape', async () => {
+  it('maps the JWT payload to the current user shape', () => {
     const strategy = new JwtStrategy({
       getOrThrow: jest.fn().mockReturnValue('test-secret'),
     } as unknown as ConfigService);
 
-    await expect(
-      strategy.validate({ sub: 1, email: 'test@example.com' }),
-    ).resolves.toEqual({ id: 1, email: 'test@example.com' });
+    expect(
+      strategy.validate({ sub: 'user-id', email: 'test@example.com' }),
+    ).toEqual({
+      id: 'user-id',
+      email: 'test@example.com',
+    });
   });
 });

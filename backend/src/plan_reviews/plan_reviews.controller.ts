@@ -1,6 +1,16 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/auth.types';
 import { PlanReviewsService } from './plan_reviews.service';
 import { CreatePlanReviewDto } from './dto/create-plan_review.dto';
 
@@ -11,7 +21,7 @@ export class PlanReviewsController {
   @UseGuards(AuthGuard('jwt'))
   @Post()
   create(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Body() createPlanReviewDto: CreatePlanReviewDto,
   ) {
     return this.planReviewsService.create(user.id, createPlanReviewDto);
@@ -30,7 +40,7 @@ export class PlanReviewsController {
   @UseGuards(AuthGuard('jwt'))
   @Delete(':id')
   remove(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.planReviewsService.remove(user.id, id);

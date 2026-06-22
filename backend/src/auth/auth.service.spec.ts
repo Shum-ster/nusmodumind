@@ -51,15 +51,15 @@ describe('AuthService', () => {
     expect(usersService.findUserByEmail).toHaveBeenCalledWith(
       'test@example.com',
     );
-    expect(usersService.createUser).toHaveBeenCalledWith({
-      email: 'test@example.com',
-      passwordHash: expect.not.stringMatching(/^password123$/),
-    });
+    const createUserCalls = usersService.createUser.mock.calls as [
+      [{ email: string; passwordHash: string }],
+    ];
+    const createUserPayload = createUserCalls[0][0];
+
+    expect(createUserPayload.email).toBe('test@example.com');
+    expect(createUserPayload.passwordHash).not.toMatch(/^password123$/);
     await expect(
-      bcrypt.compare(
-        'password123',
-        usersService.createUser.mock.calls[0][0].passwordHash,
-      ),
+      bcrypt.compare('password123', createUserPayload.passwordHash),
     ).resolves.toBe(true);
     expect(result).toEqual({ id: 'user-id', email: 'test@example.com' });
   });
@@ -108,10 +108,12 @@ describe('AuthService', () => {
     ).resolves.toBeNull();
   });
 
-  it('signs a login payload', async () => {
-    await expect(
-      service.login({ id: 'user-id', email: 'test@example.com' }),
-    ).resolves.toEqual({ access_token: 'signed-token' });
+  it('signs a login payload', () => {
+    expect(service.login({ id: 'user-id', email: 'test@example.com' })).toEqual(
+      {
+        access_token: 'signed-token',
+      },
+    );
     expect(jwtService.sign).toHaveBeenCalledWith({
       email: 'test@example.com',
       sub: 'user-id',

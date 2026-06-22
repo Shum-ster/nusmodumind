@@ -1,6 +1,17 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/auth.types';
 import { PlannedModulesService } from './planned_modules.service';
 import { CreatePlannedModuleDto } from './dto/create-planned_module.dto';
 import { UpdatePlannedModuleDto } from './dto/update-planned_module.dto';
@@ -12,7 +23,7 @@ export class PlannedModulesController {
   @UseGuards(AuthGuard('jwt'))
   @Post()
   create(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Body() createPlannedModuleDto: CreatePlannedModuleDto,
   ) {
     return this.plannedModulesService.create(user.id, createPlannedModuleDto);
@@ -21,7 +32,7 @@ export class PlannedModulesController {
   @UseGuards(AuthGuard('jwt'))
   @Get(':id')
   findOne(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.plannedModulesService.findOne(id, user.id);
@@ -30,17 +41,21 @@ export class PlannedModulesController {
   @UseGuards(AuthGuard('jwt'))
   @Patch(':id')
   update(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePlannedModuleDto: UpdatePlannedModuleDto,
   ) {
-    return this.plannedModulesService.update(user.id, id, updatePlannedModuleDto);
+    return this.plannedModulesService.update(
+      user.id,
+      id,
+      updatePlannedModuleDto,
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Delete(':id')
   remove(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.plannedModulesService.remove(user.id, id);

@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from './decorators/current-user.decorator';
+import type { AuthenticatedUser } from './auth.types';
 
 @Controller('auth')
 export class AuthController {
@@ -15,13 +16,13 @@ export class AuthController {
 
   @UseGuards(AuthGuard('local'))
   @Post('login')
-  async login(@CurrentUser() user: any) {
+  login(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.login(user);
   }
 
-  @UseGuards(AuthGuard('jwt')) 
+  @UseGuards(AuthGuard('jwt'))
   @Get('me')
-  getMe(@CurrentUser() user: any) {
+  getMe(@CurrentUser() user: AuthenticatedUser) {
     return user;
   }
 }

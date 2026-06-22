@@ -1,6 +1,18 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/auth.types';
 import { SemestersService } from './semesters.service';
 import { CreateSemesterDto } from './dto/create-semester.dto';
 import { UpdateSemesterDto } from './dto/update-semester.dto';
@@ -12,7 +24,7 @@ export class SemestersController {
   @UseGuards(AuthGuard('jwt'))
   @Post()
   create(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Body() createSemesterDto: CreateSemesterDto,
   ) {
     return this.semestersService.create(user.id, createSemesterDto);
@@ -20,18 +32,18 @@ export class SemestersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get('me/plan')
-  findCurrentUserPlan(@CurrentUser() user: { id: string; email: string }) {
+  findCurrentUserPlan(@CurrentUser() user: AuthenticatedUser) {
     return this.semestersService.findCurrentUserPlan(user.id);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Get('user/:userId')
   findUserPlan(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Param('userId', ParseUUIDPipe) userId: string,
   ) {
     if (userId !== user.id) {
-      throw new ForbiddenException('You cannot access another user\'s plan.');
+      throw new ForbiddenException("You cannot access another user's plan.");
     }
 
     return this.semestersService.findUserPlan(userId);
@@ -40,7 +52,7 @@ export class SemestersController {
   @UseGuards(AuthGuard('jwt'))
   @Get(':id')
   findOne(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.semestersService.findOne(id, user.id);
@@ -49,7 +61,7 @@ export class SemestersController {
   @UseGuards(AuthGuard('jwt'))
   @Patch(':id')
   update(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateSemesterDto: UpdateSemesterDto,
   ) {
@@ -59,7 +71,7 @@ export class SemestersController {
   @UseGuards(AuthGuard('jwt'))
   @Delete(':id')
   remove(
-    @CurrentUser() user: { id: string; email: string },
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.semestersService.remove(id, user.id);

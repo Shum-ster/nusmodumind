@@ -3,15 +3,16 @@ import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
+import type { AuthenticatedUser, LoginResponse } from './auth.types';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
-    private jwtService: JwtService
+    private jwtService: JwtService,
   ) {}
-  
-  async register(registerDto: RegisterDto) {
+
+  async register(registerDto: RegisterDto): Promise<AuthenticatedUser> {
     const { email, password } = registerDto;
 
     // Check if user exists
@@ -35,10 +36,13 @@ export class AuthService {
       email: newUser.email,
     };
   }
-  
-  async validateUser(email: string, pass: string): Promise<any> {
+
+  async validateUser(
+    email: string,
+    pass: string,
+  ): Promise<AuthenticatedUser | null> {
     const user = await this.usersService.findUserByEmail(email);
-    
+
     if (user) {
       const isMatch = await bcrypt.compare(pass, user.passwordHash);
       if (isMatch) {
@@ -48,11 +52,11 @@ export class AuthService {
         };
       }
     }
-    
+
     return null;
   }
 
-  async login(user: any) {
+  login(user: AuthenticatedUser): LoginResponse {
     const payload = { email: user.email, sub: user.id };
     // Sign the payload using secret key and return
     return {
