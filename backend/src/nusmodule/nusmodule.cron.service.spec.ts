@@ -3,6 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { of } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { NusModulesCronService } from './nusmodule.cron.service';
+import { Prisma } from '@prisma/client';
 
 describe('NusModulesCronService', () => {
   let service: NusModulesCronService;
@@ -102,11 +103,13 @@ describe('NusModulesCronService', () => {
 
     await service.syncNusModsData();
 
+    const expectedUpdate: unknown = expect.objectContaining({
+      semesterData: [],
+    });
+
     expect(prisma.nusModule.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: expect.objectContaining({
-          semesterData: [],
-        }),
+        update: expectedUpdate,
       }),
     );
   });
@@ -122,8 +125,9 @@ describe('NusModulesCronService', () => {
 
     expect(prisma.nusModule.upsert).toHaveBeenCalledTimes(501);
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
-    expect(prisma.$transaction.mock.calls[0][0]).toHaveLength(500);
-    expect(prisma.$transaction.mock.calls[1][0]).toHaveLength(1);
+    const transactionCalls = prisma.$transaction.mock.calls as [unknown[]][];
+    expect(transactionCalls[0][0]).toHaveLength(500);
+    expect(transactionCalls[1][0]).toHaveLength(1);
   });
 
   it('uses safe defaults when NUSMods omits required schema fields', async () => {
@@ -150,21 +154,23 @@ describe('NusModulesCronService', () => {
 
     await service.syncNusModsData();
 
+    const expectedUpdate: unknown = expect.objectContaining({
+      description: '',
+      department: null,
+      faculty: 'Unknown',
+      gradingBasisDescription: 'Unknown',
+      moduleCredit: '',
+      prerequisite: null,
+      preclusion: null,
+      corequisite: null,
+      workload: Prisma.DbNull,
+      semesterData: [],
+      attributes: Prisma.DbNull,
+    });
+
     expect(prisma.nusModule.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: expect.objectContaining({
-          description: '',
-          department: null,
-          faculty: 'Unknown',
-          gradingBasisDescription: 'Unknown',
-          moduleCredit: '',
-          prerequisite: null,
-          preclusion: null,
-          corequisite: null,
-          workload: null,
-          semesterData: [],
-          attributes: null,
-        }),
+        update: expectedUpdate,
       }),
     );
   });
