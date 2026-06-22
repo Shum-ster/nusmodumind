@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -28,8 +29,11 @@ export class PublicPlansController {
   }
 
   @Get()
-  findAll() {
-    return this.publicPlansService.findAll();
+  findAll(
+    @Query('faculty') faculty?: string,
+    @Query('degree') degree?: string,
+  ) {
+    return this.publicPlansService.findAll({ degree, faculty });
   }
 
   @Get(':id')

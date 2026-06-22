@@ -1,8 +1,27 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicPlansService } from '../public_plans/public_plans.service';
 import { CreatePlanReviewDto } from './dto/create-plan_review.dto';
-import { PlanReview } from '@prisma/client';
+import { PlanReview, Prisma } from '@prisma/client';
+
+const planReviewUserSelect = {
+  username: true,
+  faculty: true,
+  degree: true,
+} satisfies Prisma.UserSelect;
+
+type PlanReviewWithUser = Prisma.PlanReviewGetPayload<{
+  include: {
+    user: {
+      select: typeof planReviewUserSelect;
+    };
+  };
+}>;
 
 @Injectable()
 export class PlanReviewsService {
@@ -11,12 +30,16 @@ export class PlanReviewsService {
     private readonly publicPlansService: PublicPlansService,
   ) {}
 
-  async create(userId: string, createPlanReviewDto: CreatePlanReviewDto): Promise<PlanReview> {
-    // Validates the public plan exists
+  async create(
+    userId: string,
+    createPlanReviewDto: CreatePlanReviewDto,
+  ): Promise<PlanReview> {
     try {
       await this.publicPlansService.findOne(createPlanReviewDto.publicPlanId);
-    } catch (error) {
-      throw new BadRequestException('Cannot review a plan that does not exist.');
+    } catch {
+      throw new BadRequestException(
+        'Cannot review a plan that does not exist.',
+      );
     }
 
     return this.prisma.planReview.create({
@@ -27,16 +50,22 @@ export class PlanReviewsService {
     });
   }
 
-  async findByPlan(publicPlanId: string): Promise<PlanReview[]> {
+  async findByPlan(publicPlanId: string): Promise<PlanReviewWithUser[]> {
     return this.prisma.planReview.findMany({
       where: { publicPlanId },
       orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: planReviewUserSelect },
+      },
     });
   }
 
-  async findOne(id: string): Promise<PlanReview> {
+  async findOne(id: string): Promise<PlanReviewWithUser> {
     const review = await this.prisma.planReview.findUnique({
       where: { id },
+      include: {
+        user: { select: planReviewUserSelect },
+      },
     });
 
     if (!review) {

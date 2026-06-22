@@ -1,13 +1,54 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePublicPlanDto } from './dto/create-public_plan.dto';
 import { Prisma, PublicPlan } from '@prisma/client';
+
+const marketplaceAuthorSelect = {
+  username: true,
+  faculty: true,
+  degree: true,
+} satisfies Prisma.UserSelect;
+
+type FindAllPublicPlansOptions = {
+  degree?: string;
+  faculty?: string;
+};
+
+type PublicPlanListItem = Prisma.PublicPlanGetPayload<{
+  include: {
+    author: {
+      select: typeof marketplaceAuthorSelect;
+    };
+  };
+}>;
+
+type PublicPlanDetail = Prisma.PublicPlanGetPayload<{
+  include: {
+    author: {
+      select: typeof marketplaceAuthorSelect;
+    };
+    reviews: {
+      include: {
+        user: {
+          select: typeof marketplaceAuthorSelect;
+        };
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class PublicPlansService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(authorId: string, createPublicPlanDto: CreatePublicPlanDto): Promise<PublicPlan> {
+  async create(
+    authorId: string,
+    createPublicPlanDto: CreatePublicPlanDto,
+  ): Promise<PublicPlan> {
     return this.prisma.publicPlan.create({
       data: {
         ...createPublicPlanDto,
@@ -16,23 +57,37 @@ export class PublicPlansService {
     });
   }
 
-  // Fetch all plans for the marketplace, ordered by popularity
-  async findAll(): Promise<PublicPlan[]> {
+  async findAll(
+    options: FindAllPublicPlansOptions = {},
+  ): Promise<PublicPlanListItem[]> {
+    const faculty = options.faculty?.trim();
+    const degree = options.degree?.trim();
+    const where: Prisma.PublicPlanWhereInput =
+      faculty || degree
+        ? {
+            author: {
+              ...(faculty ? { faculty } : {}),
+              ...(degree ? { degree } : {}),
+            },
+          }
+        : {};
+
     return this.prisma.publicPlan.findMany({
+      where,
       orderBy: { upvotes: 'desc' },
       include: {
-        author: { select: { email: true } }, // Only expose email, not password
+        author: { select: marketplaceAuthorSelect },
       },
     });
   }
 
-  async findOne(id: string): Promise<PublicPlan> {
+  async findOne(id: string): Promise<PublicPlanDetail> {
     const plan = await this.prisma.publicPlan.findUnique({
       where: { id },
       include: {
-        author: { select: { email: true } },
+        author: { select: marketplaceAuthorSelect },
         reviews: {
-          include: { user: { select: { email: true } } },
+          include: { user: { select: marketplaceAuthorSelect } },
           orderBy: { createdAt: 'desc' },
         },
       },

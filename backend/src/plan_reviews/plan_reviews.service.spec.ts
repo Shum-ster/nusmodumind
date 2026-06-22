@@ -28,6 +28,11 @@ describe('PlanReviewsService', () => {
     content: 'Helpful plan',
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
   };
+  const reviewerSelect = {
+    username: true,
+    faculty: true,
+    degree: true,
+  };
 
   beforeEach(async () => {
     prisma = {
@@ -93,6 +98,9 @@ describe('PlanReviewsService', () => {
     expect(prisma.planReview.findMany).toHaveBeenCalledWith({
       where: { publicPlanId: review.publicPlanId },
       orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: reviewerSelect },
+      },
     });
   });
 
@@ -100,6 +108,9 @@ describe('PlanReviewsService', () => {
     await expect(service.findOne(review.id)).resolves.toEqual(review);
     expect(prisma.planReview.findUnique).toHaveBeenCalledWith({
       where: { id: review.id },
+      include: {
+        user: { select: reviewerSelect },
+      },
     });
   });
 

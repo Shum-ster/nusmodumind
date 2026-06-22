@@ -23,6 +23,11 @@ describe('PublicPlansService', () => {
     upvotes: 3,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
   };
+  const authorSelect = {
+    username: true,
+    faculty: true,
+    degree: true,
+  };
 
   beforeEach(async () => {
     prisma = {
@@ -61,14 +66,61 @@ describe('PublicPlansService', () => {
     });
   });
 
-  it('finds all public plans ordered by upvotes with author email', async () => {
+  it('finds all public plans ordered by upvotes with author profile', async () => {
     await expect(service.findAll()).resolves.toEqual([plan]);
     expect(prisma.publicPlan.findMany).toHaveBeenCalledWith({
+      where: {},
       orderBy: { upvotes: 'desc' },
       include: {
-        author: { select: { email: true } },
+        author: { select: authorSelect },
       },
     });
+  });
+
+  it('filters public plans by author faculty', async () => {
+    await service.findAll({ faculty: 'Computing' });
+
+    expect(prisma.publicPlan.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          author: {
+            faculty: 'Computing',
+          },
+        },
+      }),
+    );
+  });
+
+  it('filters public plans by author degree', async () => {
+    await service.findAll({ degree: 'Computer Science' });
+
+    expect(prisma.publicPlan.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          author: {
+            degree: 'Computer Science',
+          },
+        },
+      }),
+    );
+  });
+
+  it('filters public plans by author faculty and degree', async () => {
+    await service.findAll({
+      degree: 'Computer Science',
+      faculty: 'Computing',
+    });
+
+    expect(prisma.publicPlan.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          author: {
+            degree: 'Computer Science',
+            faculty: 'Computing',
+          },
+        },
+      }),
+    );
   });
 
   it('finds one public plan with author and reviews', async () => {
@@ -76,9 +128,9 @@ describe('PublicPlansService', () => {
     expect(prisma.publicPlan.findUnique).toHaveBeenCalledWith({
       where: { id: plan.id },
       include: {
-        author: { select: { email: true } },
+        author: { select: authorSelect },
         reviews: {
-          include: { user: { select: { email: true } } },
+          include: { user: { select: authorSelect } },
           orderBy: { createdAt: 'desc' },
         },
       },

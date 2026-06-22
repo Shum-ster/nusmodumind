@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { Prisma } from '@prisma/client';
 
 export enum PlannedModuleStatusDto {
   SELECTED = 'SELECTED',
@@ -36,5 +37,5 @@ export class CreatePlannedModuleDto {
 
   @IsObject()
   @IsOptional()
-  selectedLessons?: any; // Represents JSONB config for custom schedule slots
+  selectedLessons?: Prisma.InputJsonValue; // Represents JSONB config for custom schedule slots
 }

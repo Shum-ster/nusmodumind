@@ -59,7 +59,20 @@ describe('PublicPlansController', () => {
 
   it('finds all public plans', async () => {
     await expect(controller.findAll()).resolves.toEqual([plan]);
-    expect(service.findAll).toHaveBeenCalled();
+    expect(service.findAll).toHaveBeenCalledWith({
+      degree: undefined,
+      faculty: undefined,
+    });
+  });
+
+  it('passes marketplace filters to the service', async () => {
+    await expect(
+      controller.findAll('Computing', 'Computer Science'),
+    ).resolves.toEqual([plan]);
+    expect(service.findAll).toHaveBeenCalledWith({
+      degree: 'Computer Science',
+      faculty: 'Computing',
+    });
   });
 
   it('finds one public plan', async () => {

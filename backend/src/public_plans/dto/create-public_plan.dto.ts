@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty, IsObject, IsOptional } from 'class-validator';
+import { Prisma } from '@prisma/client';
 
 export class CreatePublicPlanDto {
   @IsString()
@@ -11,5 +12,5 @@ export class CreatePublicPlanDto {
 
   @IsObject()
   @IsNotEmpty()
-  planSnapshot: any;
+  planSnapshot: Prisma.InputJsonValue;
 }
