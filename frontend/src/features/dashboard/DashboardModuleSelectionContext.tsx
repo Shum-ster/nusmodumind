@@ -2,21 +2,23 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { MockNusModule } from './mockModules';
+import type { DashboardModule } from './types';
 
 type YearNumber = 1 | 2 | 3 | 4;
 type SemesterNumber = 1 | 2;
 type SemesterKey = `year-${YearNumber}-semester-${SemesterNumber}`;
 
 type DashboardModuleSelectionContextValue = {
-  exemptedModules: MockNusModule[];
-  semesterModules: Record<SemesterKey, MockNusModule[]>;
-  selectedModules: MockNusModule[];
-  addSelectedModule: (module: MockNusModule) => void;
+  exemptedModules: DashboardModule[];
+  semesterModules: Record<SemesterKey, DashboardModule[]>;
+  selectedModules: DashboardModule[];
+  addSelectedModule: (module: DashboardModule) => void;
+  isModuleInPlan: (moduleCode: string) => boolean;
   isModuleSelected: (moduleCode: string) => boolean;
-  moveModuleToExempted: (moduleCode: string) => void;
-  moveModuleToSelected: (moduleCode: string) => void;
-  moveModuleToSemester: (semesterKey: SemesterKey, moduleCode: string) => void;
+  moveModuleToExempted: (moduleCode: string, fallbackModule?: DashboardModule) => void;
+  moveModuleToSelected: (moduleCode: string, fallbackModule?: DashboardModule) => void;
+  moveModuleToSemester: (semesterKey: SemesterKey, moduleCode: string, fallbackModule?: DashboardModule) => void;
+  removeSelectedModule: (moduleCode: string) => void;
 };
 
 const DashboardModuleSelectionContext = createContext<DashboardModuleSelectionContextValue | null>(null);
@@ -25,7 +27,7 @@ type DashboardModuleSelectionProviderProps = {
   children: ReactNode;
 };
 
-const initialSemesterModules: Record<SemesterKey, MockNusModule[]> = {
+const initialSemesterModules: Record<SemesterKey, DashboardModule[]> = {
   'year-1-semester-1': [],
   'year-1-semester-2': [],
   'year-2-semester-1': [],
@@ -37,11 +39,20 @@ const initialSemesterModules: Record<SemesterKey, MockNusModule[]> = {
 };
 
 export function DashboardModuleSelectionProvider({ children }: DashboardModuleSelectionProviderProps) {
-  const [exemptedModules, setExemptedModules] = useState<MockNusModule[]>([]);
-  const [selectedModules, setSelectedModules] = useState<MockNusModule[]>([]);
+  const [exemptedModules, setExemptedModules] = useState<DashboardModule[]>([]);
+  const [selectedModules, setSelectedModules] = useState<DashboardModule[]>([]);
   const [semesterModules, setSemesterModules] = useState(initialSemesterModules);
 
-  const addSelectedModule = useCallback((selectedModule: MockNusModule) => {
+  const addSelectedModule = useCallback((selectedModule: DashboardModule) => {
+    const isAlreadyPlanned = exemptedModules.some((currentModule) => currentModule.code === selectedModule.code)
+      || Object.values(semesterModules)
+        .flat()
+        .some((currentModule) => currentModule.code === selectedModule.code);
+
+    if (isAlreadyPlanned) {
+      return;
+    }
+
     setSelectedModules((currentModules) => {
       if (currentModules.some((currentModule) => currentModule.code === selectedModule.code)) {
         return currentModules;
@@ -49,7 +60,7 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
 
       return [...currentModules, selectedModule];
     });
-  }, []);
+  }, [exemptedModules, semesterModules]);
 
   const isModuleSelected = useCallback(
     (moduleCode: string) => selectedModules.some((selectedModule) => selectedModule.code === moduleCode),
@@ -63,6 +74,8 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
       .flat()
       .find((currentModule) => currentModule.code === moduleCode)
   ), [exemptedModules, selectedModules, semesterModules]);
+
+  const isModuleInPlan = useCallback((moduleCode: string) => Boolean(findModuleByCode(moduleCode)), [findModuleByCode]);
 
   const removeModuleFromSemesters = useCallback((moduleCode: string) => {
     setSemesterModules((currentSemesters) => {
@@ -89,8 +102,14 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
     ));
   }, [removeModuleFromSemesters]);
 
-  const moveModuleToSelected = useCallback((moduleCode: string) => {
-    const targetModule = findModuleByCode(moduleCode);
+  const removeSelectedModule = useCallback((moduleCode: string) => {
+    setSelectedModules((currentModules) => (
+      currentModules.filter((currentModule) => currentModule.code !== moduleCode)
+    ));
+  }, []);
+
+  const moveModuleToSelected = useCallback((moduleCode: string, fallbackModule?: DashboardModule) => {
+    const targetModule = findModuleByCode(moduleCode) ?? fallbackModule;
 
     if (!targetModule) {
       return;
@@ -107,8 +126,8 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
     });
   }, [findModuleByCode, removeModuleFromBuckets]);
 
-  const moveModuleToExempted = useCallback((moduleCode: string) => {
-    const targetModule = findModuleByCode(moduleCode);
+  const moveModuleToExempted = useCallback((moduleCode: string, fallbackModule?: DashboardModule) => {
+    const targetModule = findModuleByCode(moduleCode) ?? fallbackModule;
 
     if (!targetModule) {
       return;
@@ -125,8 +144,8 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
     });
   }, [findModuleByCode, removeModuleFromBuckets]);
 
-  const moveModuleToSemester = useCallback((semesterKey: SemesterKey, moduleCode: string) => {
-    const targetModule = findModuleByCode(moduleCode);
+  const moveModuleToSemester = useCallback((semesterKey: SemesterKey, moduleCode: string, fallbackModule?: DashboardModule) => {
+    const targetModule = findModuleByCode(moduleCode) ?? fallbackModule;
 
     if (!targetModule) {
       return;
@@ -149,18 +168,22 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
       semesterModules,
       selectedModules,
       addSelectedModule,
+      isModuleInPlan,
       isModuleSelected,
       moveModuleToExempted,
       moveModuleToSelected,
       moveModuleToSemester,
+      removeSelectedModule,
     }),
     [
       addSelectedModule,
       exemptedModules,
+      isModuleInPlan,
       isModuleSelected,
       moveModuleToExempted,
       moveModuleToSelected,
       moveModuleToSemester,
+      removeSelectedModule,
       selectedModules,
       semesterModules,
     ],

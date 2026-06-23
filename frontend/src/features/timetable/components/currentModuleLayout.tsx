@@ -1,7 +1,7 @@
-import type { MockNusModule } from '@/features/dashboard/mockModules';
+import type { DashboardModule } from '@/features/dashboard/types';
 
 type CurrentModuleLayoutProps = {
-  modules: MockNusModule[];
+  modules: DashboardModule[];
 };
 
 export function CurrentModuleLayout({ modules }: CurrentModuleLayoutProps) {

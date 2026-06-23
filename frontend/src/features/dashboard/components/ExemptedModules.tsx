@@ -1,7 +1,8 @@
 'use client';
 
-import { useDashboardModuleSelection } from '../../DashboardModuleSelectionContext';
-import { ModuleNameLayout } from '../moduleNameLayout';
+import { useDashboardModuleSelection } from '../DashboardModuleSelectionContext';
+import { getDashboardModuleDropData, setDashboardModuleDragData } from '../dashboard-drag';
+import { DashboardModuleCard } from './DashboardModuleCard';
 
 export function ExemptedModules() {
   const { exemptedModules, moveModuleToExempted } = useDashboardModuleSelection();
@@ -14,9 +15,13 @@ export function ExemptedModules() {
       }}
       onDrop={(event) => {
         event.preventDefault();
-        moveModuleToExempted(event.dataTransfer.getData('text/plain'));
+        const dropData = getDashboardModuleDropData(event);
+
+        if (dropData) {
+          moveModuleToExempted(dropData.moduleCode, dropData.module);
+        }
       }}
-      className="flex min-h-0 flex-col rounded-lg border border-gray-200 bg-white p-4 text-gray-900 shadow-sm"
+      className="flex min-h-[220px] flex-col rounded-lg border border-gray-300 bg-gray-100 p-4 text-gray-900 shadow-sm"
     >
       <div className="mb-3">
         <h2 className="text-lg font-bold text-gray-900">Exempted Modules</h2>
@@ -30,16 +35,15 @@ export function ExemptedModules() {
               key={module.code}
               draggable
               onDragStart={(event) => {
-                event.dataTransfer.setData('text/plain', module.code);
-                event.dataTransfer.effectAllowed = 'move';
+                setDashboardModuleDragData(event, module);
               }}
               className="cursor-grab active:cursor-grabbing"
             >
-              <ModuleNameLayout module={module} />
+              <DashboardModuleCard module={module} />
             </div>
           ))
         ) : (
-          <div className="flex min-h-full items-center justify-center rounded-lg border border-dashed border-gray-300 px-4 text-center text-sm font-medium text-gray-500">
+          <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-gray-400 px-4 text-center text-sm font-medium text-gray-500">
             Drop modules here.
           </div>
         )}

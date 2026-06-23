@@ -11,6 +11,7 @@ export class NusmoduleController {
     @Query('department') department?: string,
     @Query('faculty') faculty?: string,
     @Query('limit') limit?: string,
+    @Query('moduleCodePrefix') moduleCodePrefix?: string,
     @Query('search') search?: string,
   ) {
     const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
@@ -20,6 +21,7 @@ export class NusmoduleController {
       department,
       faculty,
       limit: Number.isNaN(parsedLimit) ? undefined : parsedLimit,
+      moduleCodePrefix,
       search,
     });
   }

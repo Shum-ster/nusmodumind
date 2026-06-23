@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { MockNusModule } from '@/features/dashboard/mockModules';
 import type { SemesterKey, SemesterNumber, YearNumber } from '@/features/dashboard/DashboardModuleSelectionContext';
+import type { DashboardModule } from '@/features/dashboard/types';
 import { useDashboardModuleSelection } from '@/features/dashboard/DashboardModuleSelectionContext';
 import { CurrentModuleLayout } from './components/currentModuleLayout';
 import { ScrollFeature } from './components/scrollFeature';
@@ -14,7 +14,7 @@ type SemesterOption = {
 };
 
 type TimetableEvent = {
-  module: MockNusModule;
+  module: DashboardModule;
   room: string;
   color: string;
 };
@@ -76,7 +76,7 @@ function buildTimeSlots(startHour = defaultStartHour, endHour = defaultEndHour):
   });
 }
 
-function buildTimetableSchedule(modules: MockNusModule[], days: string[], timeSlots: TimeSlot[]) {
+function buildTimetableSchedule(modules: DashboardModule[], days: string[], timeSlots: TimeSlot[]) {
   return modules.reduce<Record<string, TimetableEvent>>((schedule, module, moduleIndex) => {
     const day = days[moduleIndex % days.length];
     const timeSlot = timeSlots[moduleIndex % timeSlots.length];

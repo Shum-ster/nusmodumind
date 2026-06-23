@@ -6,6 +6,9 @@ export type NusModuleListItem = {
   faculty: string;
   department: string | null;
   moduleCredit: string;
+  prerequisite?: string | null;
+  semesterData?: unknown;
+  workload?: unknown;
   gradingBasisDescription: string;
 };
 
@@ -45,6 +48,7 @@ type SearchNusModulesQuery = {
   department?: string | null;
   faculty?: string | null;
   limit?: number | null;
+  moduleCodePrefix?: string | null;
   search?: string | null;
 };
 

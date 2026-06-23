@@ -30,6 +30,9 @@ describe('NusmoduleService', () => {
     department: nusModule.department,
     faculty: nusModule.faculty,
     gradingBasisDescription: nusModule.gradingBasisDescription,
+    prerequisite: nusModule.prerequisite,
+    semesterData: nusModule.semesterData,
+    workload: nusModule.workload,
   };
 
   beforeEach(async () => {
@@ -69,6 +72,9 @@ describe('NusmoduleService', () => {
         faculty: true,
         department: true,
         moduleCredit: true,
+        prerequisite: true,
+        semesterData: true,
+        workload: true,
         gradingBasisDescription: true,
       },
     });
@@ -93,6 +99,7 @@ describe('NusmoduleService', () => {
       department: 'Computer Science',
       faculty: 'School of Computing',
       limit: 500,
+      moduleCodePrefix: 'cs',
       search: 'programming',
     });
 
@@ -100,7 +107,11 @@ describe('NusmoduleService', () => {
       expect.objectContaining({
         take: 51,
         where: {
-          moduleCode: { gt: 'CS1010S' },
+          moduleCode: {
+            gt: 'CS1010S',
+            startsWith: 'CS',
+            mode: 'insensitive',
+          },
           department: 'Computer Science',
           faculty: 'School of Computing',
           OR: [

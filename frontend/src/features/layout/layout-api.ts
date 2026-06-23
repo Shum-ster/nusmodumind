@@ -1,11 +1,18 @@
 import { apiRequest } from "@/features/api";
 import type { NusModuleSearchResponse } from "@/features/courses/courses-api";
 
-export function searchHeaderModules(search: string) {
+type SearchHeaderModulesQuery = {
+  limit?: number;
+  moduleCodePrefix?: string;
+  search?: string;
+};
+
+export function searchHeaderModules({ limit = 8, moduleCodePrefix, search }: SearchHeaderModulesQuery) {
   return apiRequest<NusModuleSearchResponse>("/nusmodule", {
     query: {
+      moduleCodePrefix,
       search,
-      limit: 8,
+      limit,
     },
   });
 }
