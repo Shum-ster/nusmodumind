@@ -69,6 +69,14 @@ Apply the Prisma migrations:
 npx prisma migrate dev
 ```
 
+Populate the local module catalog when setting up the database for the first time:
+
+```bash
+npm run sync:nusmods
+```
+
+This runs the NUSMods sync once and upserts the module data into the `nus_modules` table.
+
 Start the backend:
 
 ```bash
