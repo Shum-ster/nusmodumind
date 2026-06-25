@@ -29,10 +29,13 @@ type NusModuleUpsertData = Omit<
 @Injectable()
 export class NusModulesCronService {
   private readonly logger = new Logger(NusModulesCronService.name);
+  private readonly detailFetchConcurrency = 20;
 
   // Move the Academic Year to an env variable later
-  private readonly NUSMODS_API_URL =
-    'https://api.nusmods.com/v2/2025-2026/moduleInfo.json';
+  private readonly NUSMODS_ACAD_YEAR =
+    process.env.NUSMODS_ACAD_YEAR ?? '2025-2026';
+  private readonly NUSMODS_API_BASE_URL = `https://api.nusmods.com/v2/${this.NUSMODS_ACAD_YEAR}`;
+  private readonly NUSMODS_MODULE_INFO_URL = `${this.NUSMODS_API_BASE_URL}/moduleInfo.json`;
 
   constructor(
     private readonly httpService: HttpService,
@@ -72,10 +75,66 @@ export class NusModulesCronService {
 
   private async fetchNusModsModules(): Promise<NusModsModuleInfo[]> {
     const response = await firstValueFrom(
-      this.httpService.get<NusModsModuleInfo[]>(this.NUSMODS_API_URL),
+      this.httpService.get<NusModsModuleInfo[]>(this.NUSMODS_MODULE_INFO_URL),
     );
 
-    return response.data;
+    return this.fetchNusModsModuleDetails(response.data);
+  }
+
+  private async fetchNusModsModuleDetails(
+    moduleInfos: NusModsModuleInfo[],
+  ): Promise<NusModsModuleInfo[]> {
+    const moduleDetails: NusModsModuleInfo[] = [];
+
+    for (
+      let index = 0;
+      index < moduleInfos.length;
+      index += this.detailFetchConcurrency
+    ) {
+      const moduleInfoChunk = moduleInfos.slice(
+        index,
+        index + this.detailFetchConcurrency,
+      );
+      const detailChunk = await Promise.all(
+        moduleInfoChunk.map((moduleInfo) =>
+          this.fetchNusModsModuleDetail(moduleInfo),
+        ),
+      );
+
+      moduleDetails.push(...detailChunk);
+
+      this.logger.log(
+        `Fetched detailed timetable data for ${Math.min(
+          index + moduleInfoChunk.length,
+          moduleInfos.length,
+        )}/${moduleInfos.length} modules...`,
+      );
+    }
+
+    return moduleDetails;
+  }
+
+  private async fetchNusModsModuleDetail(
+    moduleInfo: NusModsModuleInfo,
+  ): Promise<NusModsModuleInfo> {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get<NusModsModuleInfo>(
+          `${this.NUSMODS_API_BASE_URL}/modules/${encodeURIComponent(
+            moduleInfo.moduleCode,
+          )}.json`,
+        ),
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch detailed NUSMods data for ${moduleInfo.moduleCode}. Falling back to moduleInfo entry.`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      return moduleInfo;
+    }
   }
 
   private async upsertNusModsModules(modules: NusModsModuleInfo[]) {

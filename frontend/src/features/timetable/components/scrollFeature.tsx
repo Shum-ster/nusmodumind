@@ -1,9 +1,8 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { SemesterNumber, YearNumber } from '@/features/dashboard/DashboardModuleSelectionContext';
 
 type ScrollFeatureProps = {
-  semester: SemesterNumber;
-  year: YearNumber;
+  semester: number;
+  year: number;
   onPrevious: () => void;
   onNext: () => void;
 };

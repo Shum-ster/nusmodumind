@@ -178,21 +178,22 @@ function getSelectedLessons(
   selectedLessons: unknown,
 ) {
   const selections = normalizeSelectedLessons(selectedLessons);
-  const defaultLessonsByType = new Map<string, TimetableLesson>();
+  const lessonsByType = new Map<string, TimetableLesson[]>();
 
   availableLessons.forEach((lesson) => {
-    if (!defaultLessonsByType.has(lesson.lessonType)) {
-      defaultLessonsByType.set(lesson.lessonType, lesson);
-    }
+    const currentLessons = lessonsByType.get(lesson.lessonType) ?? [];
+    lessonsByType.set(lesson.lessonType, [...currentLessons, lesson]);
   });
 
-  return Array.from(defaultLessonsByType.entries()).map(
-    ([lessonType, defaultLesson]) =>
-      availableLessons.find(
-        (lesson) =>
-          lesson.lessonType === lessonType &&
-          lesson.classNo === selections[lessonType],
-      ) ?? defaultLesson,
+  return Array.from(lessonsByType.entries()).flatMap(
+    ([lessonType, lessons]) => {
+      const selectedClassNo = selections[lessonType] ?? lessons[0]?.classNo;
+      const selectedTypeLessons = lessons.filter(
+        (lesson) => lesson.classNo === selectedClassNo,
+      );
+
+      return selectedTypeLessons.length > 0 ? selectedTypeLessons : lessons.slice(0, 1);
+    },
   );
 }
 
