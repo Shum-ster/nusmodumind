@@ -6,6 +6,7 @@ type LessonSelectionVariant = 'selected' | 'available';
 type LessonSelectionPalette = {
   active: string;
   available: string;
+  availableHover: string;
   selected: string;
 };
 
@@ -19,21 +20,6 @@ type LessonSelectionProps = {
   variant: LessonSelectionVariant;
 };
 
-function formatLessonTime(time: string) {
-  const normalizedTime = time.padStart(4, '0');
-  const hours = Number(normalizedTime.slice(0, 2));
-  const minutes = normalizedTime.slice(2);
-
-  if (!Number.isFinite(hours)) {
-    return time;
-  }
-
-  const suffix = hours >= 12 ? 'PM' : 'AM';
-  const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-
-  return `${displayHour}:${minutes} ${suffix}`;
-}
-
 export function LessonSelection({
   isActive,
   isPending,
@@ -44,6 +30,7 @@ export function LessonSelection({
   variant,
 }: LessonSelectionProps) {
   const colorClass = variant === 'available' ? palette.available : palette.selected;
+  const hoverClass = variant === 'available' ? palette.availableHover : '';
   const activeClass = isActive ? palette.active : '';
 
   return (
@@ -52,7 +39,7 @@ export function LessonSelection({
       onClick={onSelect}
       disabled={isPending}
       style={style}
-      className={`z-10 flex min-h-[84px] flex-col justify-between rounded border p-2 text-left text-xs font-medium shadow-sm transition ${colorClass} ${activeClass} ${isPending ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}
+      className={`z-10 flex min-h-[84px] flex-col justify-between rounded border p-2 text-left text-xs font-medium shadow-sm transition ${colorClass} ${hoverClass} ${activeClass} ${isPending ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}
     >
       <span className="flex items-start justify-between gap-2">
         <span className="font-bold">{lesson.moduleCode}</span>
@@ -62,14 +49,8 @@ export function LessonSelection({
       </span>
 
       <span className="mt-1 grid gap-0.5">
-        <span>
-          {formatLessonTime(lesson.startTime)} - {formatLessonTime(lesson.endTime)}
-        </span>
         <span>{lesson.venue}</span>
-        <span>
-          {lesson.day}
-          {lesson.weeks ? `, Weeks ${lesson.weeks}` : ''}
-        </span>
+        {lesson.weeks ? <span>Weeks {lesson.weeks}</span> : null}
       </span>
     </button>
   );

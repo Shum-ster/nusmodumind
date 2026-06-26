@@ -60,32 +60,38 @@ const semestersInYear = [1, 2];
 const lessonPalettes: LessonSelectionPalette[] = [
   {
     active: 'ring-2 ring-blue-400 ring-offset-1',
-    available: 'border-blue-300 bg-blue-50/20 text-blue-800 opacity-70 hover:bg-blue-100 hover:opacity-100',
+    available: 'border-blue-200 bg-blue-50/20 text-blue-800 opacity-70',
+    availableHover: 'hover:border-blue-300 hover:bg-blue-100 hover:text-blue-800 hover:opacity-100',
     selected: 'border-blue-300 bg-blue-100 text-blue-800',
   },
   {
     active: 'ring-2 ring-emerald-400 ring-offset-1',
-    available: 'border-emerald-300 bg-emerald-50/20 text-emerald-800 opacity-70 hover:bg-emerald-100 hover:opacity-100',
+    available: 'border-emerald-200 bg-emerald-50/20 text-emerald-800 opacity-70',
+    availableHover: 'hover:border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800 hover:opacity-100',
     selected: 'border-emerald-300 bg-emerald-100 text-emerald-800',
   },
   {
     active: 'ring-2 ring-violet-400 ring-offset-1',
-    available: 'border-violet-300 bg-violet-50/20 text-violet-800 opacity-70 hover:bg-violet-100 hover:opacity-100',
+    available: 'border-violet-200 bg-violet-50/20 text-violet-800 opacity-70',
+    availableHover: 'hover:border-violet-300 hover:bg-violet-100 hover:text-violet-800 hover:opacity-100',
     selected: 'border-violet-300 bg-violet-100 text-violet-800',
   },
   {
     active: 'ring-2 ring-amber-400 ring-offset-1',
-    available: 'border-amber-300 bg-amber-50/20 text-amber-800 opacity-70 hover:bg-amber-100 hover:opacity-100',
+    available: 'border-amber-200 bg-amber-50/20 text-amber-800 opacity-70',
+    availableHover: 'hover:border-amber-300 hover:bg-amber-100 hover:text-amber-800 hover:opacity-100',
     selected: 'border-amber-300 bg-amber-100 text-amber-800',
   },
   {
     active: 'ring-2 ring-rose-400 ring-offset-1',
-    available: 'border-rose-300 bg-rose-50/20 text-rose-800 opacity-70 hover:bg-rose-100 hover:opacity-100',
+    available: 'border-rose-200 bg-rose-50/20 text-rose-800 opacity-70',
+    availableHover: 'hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800 hover:opacity-100',
     selected: 'border-rose-300 bg-rose-100 text-rose-800',
   },
   {
     active: 'ring-2 ring-cyan-400 ring-offset-1',
-    available: 'border-cyan-300 bg-cyan-50/20 text-cyan-800 opacity-70 hover:bg-cyan-100 hover:opacity-100',
+    available: 'border-cyan-200 bg-cyan-50/20 text-cyan-800 opacity-70',
+    availableHover: 'hover:border-cyan-300 hover:bg-cyan-100 hover:text-cyan-800 hover:opacity-100',
     selected: 'border-cyan-300 bg-cyan-100 text-cyan-800',
   },
 ];
@@ -498,12 +504,7 @@ export function TimetablePage() {
       return;
     }
 
-    setActiveLessonSelection({
-      lessonType: lesson.lessonType,
-      moduleCode: module.moduleCode,
-      plannedModuleId: module.plannedModuleId,
-      selectedLessonId: lesson.id,
-    });
+    setActiveLessonSelection(null);
     setPendingLessonId(lesson.id);
     setSaveError(null);
     setTimetable(nextTimetable);

@@ -244,7 +244,7 @@ function buildLessonId({
 
 function stringifyWeeks(weeks: unknown) {
   if (typeof weeks === "string") {
-    return weeks;
+    return stringifyWeekList(weeks);
   }
 
   if (weeks === undefined || weeks === null) {
@@ -252,7 +252,7 @@ function stringifyWeeks(weeks: unknown) {
   }
 
   if (Array.isArray(weeks)) {
-    return weeks.map(String).join(",");
+    return stringifyWeekList(weeks);
   }
 
   if (typeof weeks === "number" || typeof weeks === "boolean") {
@@ -260,6 +260,48 @@ function stringifyWeeks(weeks: unknown) {
   }
 
   return JSON.stringify(weeks);
+}
+
+function stringifyWeekList(weeks: string | unknown[]) {
+  const rawWeekLabels = (typeof weeks === "string"
+    ? weeks.split(",")
+    : weeks.map(String))
+    .map((week) => week.trim())
+    .filter(Boolean);
+
+  if (rawWeekLabels.length === 0) {
+    return "";
+  }
+
+  if (rawWeekLabels.some((week) => !/^\d+$/.test(week))) {
+    return typeof weeks === "string" ? weeks : weeks.map(String).join(", ");
+  }
+
+  const weekNumbers = rawWeekLabels.map(Number);
+  const sortedWeeks = Array.from(new Set(weekNumbers))
+    .sort((firstWeek, secondWeek) => firstWeek - secondWeek);
+  const weekRanges: string[] = [];
+  let rangeStart = sortedWeeks[0];
+  let previousWeek = sortedWeeks[0];
+
+  for (const week of sortedWeeks.slice(1)) {
+    if (week === previousWeek + 1) {
+      previousWeek = week;
+      continue;
+    }
+
+    weekRanges.push(formatWeekRange(rangeStart, previousWeek));
+    rangeStart = week;
+    previousWeek = week;
+  }
+
+  weekRanges.push(formatWeekRange(rangeStart, previousWeek));
+
+  return weekRanges.join(", ");
+}
+
+function formatWeekRange(startWeek: number, endWeek: number) {
+  return startWeek === endWeek ? String(startWeek) : `${startWeek} - ${endWeek}`;
 }
 
 function toRequiredString(value: unknown) {
