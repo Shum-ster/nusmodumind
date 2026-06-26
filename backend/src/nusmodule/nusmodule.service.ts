@@ -18,7 +18,9 @@ export class NusmoduleService {
   async findAll(options: FindAllModulesOptions = {}) {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 50);
     const normalizedCursor = options.cursor?.trim().toUpperCase();
-    const normalizedModuleCodePrefix = options.moduleCodePrefix?.trim().toUpperCase();
+    const normalizedModuleCodePrefix = options.moduleCodePrefix
+      ?.trim()
+      .toUpperCase();
     const normalizedSearch = options.search?.trim();
     const moduleCodeFilter: Prisma.StringFilter<'NusModule'> = {
       ...(normalizedCursor ? { gt: normalizedCursor } : {}),
