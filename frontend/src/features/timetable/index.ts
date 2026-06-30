@@ -1,2 +1,2 @@
 export { TimetablePage } from './TimetablePage';
-export * from "./timetable-api";
+export * from './adapters/current-user-timetable-adapter';

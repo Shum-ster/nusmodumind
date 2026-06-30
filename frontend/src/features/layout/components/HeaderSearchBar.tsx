@@ -1,12 +1,11 @@
 'use client';
 
 import { Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import type { NusModuleListItem } from '@/features/courses/courses-api';
+import { useEffect, useRef, useState } from 'react';
+import { searchNusModules, type NusModuleListItem } from '@/features/courses';
 import { useDashboardModuleSelection } from '@/features/dashboard/DashboardModuleSelectionContext';
 import { setDashboardModuleDragData } from '@/features/dashboard/dashboard-drag';
 import type { DashboardModule } from '@/features/dashboard/types';
-import { searchHeaderModules } from '../layout-api';
 
 const maxSearchResults = 8;
 
@@ -50,13 +49,33 @@ function mergeSearchResults(prefixResults: NusModuleListItem[], broadResults: Nu
 }
 
 export function HeaderSearchBar() {
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<NusModuleListItem[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const { addSelectedModule, isModuleInPlan } = useDashboardModuleSelection();
   const normalizedQuery = searchQuery.trim();
-  const showResults = normalizedQuery.length > 0;
+  const showResults = isSearchOpen && normalizedQuery.length > 0;
+
+  useEffect(() => {
+    function closeSearchOnOutsidePointerDown(event: PointerEvent) {
+      const searchContainer = searchContainerRef.current;
+
+      if (!searchContainer || searchContainer.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsSearchOpen(false);
+    }
+
+    document.addEventListener('pointerdown', closeSearchOnOutsidePointerDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', closeSearchOnOutsidePointerDown);
+    };
+  }, []);
 
   useEffect(() => {
     if (!normalizedQuery) {
@@ -70,13 +89,13 @@ export function HeaderSearchBar() {
       setSearchError(null);
 
       try {
-        const prefixResponse = await searchHeaderModules({
+        const prefixResponse = await searchNusModules({
           moduleCodePrefix: normalizedQuery,
           limit: maxSearchResults,
         });
         const remainingResultCount = maxSearchResults - prefixResponse.items.length;
         const broadResponse = remainingResultCount > 0
-          ? await searchHeaderModules({
+          ? await searchNusModules({
               search: normalizedQuery,
               limit: maxSearchResults,
             })
@@ -104,11 +123,16 @@ export function HeaderSearchBar() {
   }, [normalizedQuery]);
 
   return (
-    <div className="relative w-64">
+    <div ref={searchContainerRef} className="relative w-64">
       <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-100" />
       <input
         type="text"
         value={searchQuery}
+        onFocus={() => {
+          if (normalizedQuery) {
+            setIsSearchOpen(true);
+          }
+        }}
         onChange={(event) => {
           const nextSearchQuery = event.target.value;
 
@@ -116,8 +140,10 @@ export function HeaderSearchBar() {
           setSearchError(null);
 
           if (nextSearchQuery.trim()) {
+            setIsSearchOpen(true);
             setIsSearching(true);
           } else {
+            setIsSearchOpen(false);
             setSearchResults([]);
             setIsSearching(false);
           }

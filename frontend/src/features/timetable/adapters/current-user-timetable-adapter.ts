@@ -1,4 +1,4 @@
-import { getCurrentUserPlan } from "@/features/planner-api";
+import type { CurrentUserPlan } from "@/features/planner";
 
 export type CurrentUserTimetable = {
   semester: TimetableSemester;
@@ -51,11 +51,10 @@ type NusModsLesson = {
 
 type SelectedLessonsByType = Record<string, string>;
 
-export async function getCurrentUserTimetable(
-  token: string,
+export function buildCurrentUserTimetable(
+  plan: CurrentUserPlan,
   semesterId: string,
-): Promise<CurrentUserTimetable> {
-  const plan = await getCurrentUserPlan(token);
+): CurrentUserTimetable {
   const semester = plan.semesters.find(
     (currentSemester) => currentSemester.id === semesterId,
   );

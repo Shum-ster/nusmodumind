@@ -39,7 +39,7 @@ export function DashboardPage() {
         <ExemptedModules />
       </div>
 
-      <div className="min-h-0 self-start xl:sticky xl:top-20">
+      <div className="min-h-0 self-start xl:sticky xl:top-[5.5rem]">
         <SelectedModules />
       </div>
     </div>

@@ -7,13 +7,14 @@ import {
   getCurrentUserPlan,
   updatePlannedModule,
   type SemesterRecord,
-} from '@/features/planner-api';
+} from '@/features/planner';
 import {
-  getCurrentUserTimetable,
+  buildCurrentUserTimetable,
   type CurrentUserTimetable,
   type TimetableLesson,
   type TimetableModule,
-} from './timetable-api';
+} from './adapters/current-user-timetable-adapter';
+import { formatSingaporeTimetableTime } from './timetable-time';
 import {
   LessonSelection,
   type LessonSelectionPalette,
@@ -54,6 +55,10 @@ type PlacedTimetableLesson = VisibleTimetableLesson & {
 const timetableDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const dayOrder = new Map(timetableDays.map((day, index) => [day, index]));
 const defaultMatriculationYear = 2026;
+const dayColumnWidth = 76;
+const filledTimeIntervalMinWidth = 112;
+const lessonLaneMinHeight = 78;
+const emptyTimeBoundaries = ['0800', '0900', '1000', '1100', '1200', '1300', '1400', '1500', '1600', '1700'];
 const yearsInPlan = [1, 2, 3, 4];
 const semestersInYear = [1, 2];
 
@@ -155,23 +160,8 @@ function getTimeMinutes(time: string) {
   return Number(normalizedTime.slice(0, 2)) * 60 + Number(normalizedTime.slice(2));
 }
 
-function formatTimeLabel(time: string) {
-  const normalizedTime = normalizeTime(time);
-
-  if (!normalizedTime) {
-    return time;
-  }
-
-  const hours = Number(normalizedTime.slice(0, 2));
-  const minutes = normalizedTime.slice(2);
-  const suffix = hours >= 12 ? 'PM' : 'AM';
-  const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-
-  return `${displayHour}:${minutes} ${suffix}`;
-}
-
 function buildTimeBoundaries(lessons: VisibleTimetableLesson[]) {
-  const boundaries = new Set<string>();
+  const boundaries = new Set(emptyTimeBoundaries);
 
   lessons.forEach(({ lesson }) => {
     const startTime = normalizeTime(lesson.startTime);
@@ -324,7 +314,8 @@ export function TimetablePage() {
     setSaveError(null);
 
     try {
-      const currentTimetable = await getCurrentUserTimetable(storedToken, semesterId);
+      const plan = await getCurrentUserPlan(storedToken);
+      const currentTimetable = buildCurrentUserTimetable(plan, semesterId);
 
       if (timetableRequestIdRef.current === requestId) {
         setTimetable(currentTimetable);
@@ -448,7 +439,8 @@ export function TimetablePage() {
 
   const timeBoundaries = useMemo(() => buildTimeBoundaries(visibleLessons), [visibleLessons]);
   const intervalCount = Math.max(timeBoundaries.length - 1, 0);
-  const gridTemplateColumns = `120px repeat(${intervalCount}, minmax(108px, 1fr))`;
+  const gridTemplateColumns = `${dayColumnWidth}px repeat(${intervalCount}, minmax(${filledTimeIntervalMinWidth}px, 1fr))`;
+  const timetableMinWidth = dayColumnWidth + intervalCount * filledTimeIntervalMinWidth;
 
   const showSemesterAtIndex = useCallback((nextSemesterIndex: number) => {
     const nextSemester = semesterOptions[nextSemesterIndex];
@@ -522,40 +514,69 @@ export function TimetablePage() {
     }
   }, [activeLessonSelection, pendingLessonId, timetable, token]);
 
+  const renderTimeAxisCells = (boundaries: string[]) => (
+    boundaries.slice(0, -1).map((timeBoundary, timeIndex) => {
+      const isLastInterval = timeIndex === boundaries.length - 2;
+
+      return (
+        <div
+          key={timeBoundary}
+          className={`flex min-h-8 min-w-0 items-center border-r border-gray-100 px-1 last:border-r-0 ${
+            isLastInterval ? 'justify-between' : 'justify-start'
+          }`}
+        >
+          <span>{formatSingaporeTimetableTime(timeBoundary)}</span>
+          {isLastInterval ? <span>{formatSingaporeTimetableTime(boundaries[boundaries.length - 1])}</span> : null}
+        </div>
+      );
+    })
+  );
+
   const renderEmptyTimetableShell = (message: string, tone: 'neutral' | 'error' = 'neutral') => {
-    const emptyGridTemplateColumns = '120px minmax(360px, 1fr)';
+    const emptyIntervalCount = emptyTimeBoundaries.length - 1;
+    const emptyGridTemplateColumns = `${dayColumnWidth}px repeat(${emptyIntervalCount}, minmax(0, 1fr))`;
     const messageClass = tone === 'error'
       ? 'border-red-200 bg-red-50 text-red-700'
       : 'border-dashed border-gray-300 bg-gray-50 text-gray-500';
 
     return (
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-        <div className="min-w-[560px]">
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div>
           <div
-            className="grid border-b border-gray-200 bg-gray-50 text-center text-sm font-semibold text-gray-600"
+            className="grid border-b border-gray-200 bg-gray-50 text-[10px] font-semibold leading-tight text-gray-600"
             style={{ gridTemplateColumns: emptyGridTemplateColumns }}
           >
-            <div className="flex min-h-12 items-center justify-center border-r border-gray-200">Day</div>
-            <div className="flex min-h-12 items-center justify-center px-3">Schedule</div>
+            <div className="flex min-h-8 items-center justify-center border-r border-gray-200 px-1">Day</div>
+            {renderTimeAxisCells(emptyTimeBoundaries)}
           </div>
 
           <div>
             {timetableDays.map((day, dayIndex) => (
               <div
                 key={day}
-                className="grid min-h-[112px] items-stretch border-b border-gray-100 last:border-b-0"
+                className="relative grid min-h-[78px] items-stretch border-b border-gray-100 last:border-b-0"
                 style={{ gridTemplateColumns: emptyGridTemplateColumns }}
               >
-                <div className="flex items-center justify-center border-r border-gray-100 bg-gray-50/80 px-3 text-sm font-semibold text-gray-500">
+                <div className="flex items-center justify-center border-r border-gray-100 bg-gray-50/80 px-2 text-xs font-semibold text-gray-500">
                   {day}
                 </div>
-                <div className="flex items-center justify-center px-4">
-                  {dayIndex === 0 ? (
-                    <div className={`rounded border px-4 py-3 text-center text-sm font-medium ${messageClass}`}>
+                {emptyTimeBoundaries.slice(0, -1).map((timeBoundary, timeIndex) => (
+                  <div
+                    key={`${day}-${timeBoundary}`}
+                    className="pointer-events-none border-r border-gray-100 last:border-r-0"
+                    style={{ gridColumn: timeIndex + 2, gridRow: 1 }}
+                  />
+                ))}
+                {dayIndex === 0 ? (
+                  <div
+                    className="flex items-center justify-center px-4"
+                    style={{ gridColumn: `2 / ${emptyIntervalCount + 2}`, gridRow: 1 }}
+                  >
+                    <div className={`rounded border px-3 py-2 text-center text-xs font-medium ${messageClass}`}>
                       {message}
                     </div>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -578,23 +599,19 @@ export function TimetablePage() {
     }
 
     return (
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="relative isolate max-h-[calc(100vh-12rem)] overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm">
         <div
-          style={{ minWidth: `${120 + intervalCount * 116}px` }}
+          className="w-full"
+          style={{ minWidth: `${timetableMinWidth}px` }}
         >
           <div
-            className="grid border-b border-gray-200 bg-gray-50 text-center text-sm font-semibold text-gray-600"
+            className="sticky top-0 z-40 grid border-b border-gray-200 bg-gray-50 text-[10px] font-semibold leading-tight text-gray-600"
             style={{ gridTemplateColumns }}
           >
-            <div className="flex min-h-12 items-center justify-center border-r border-gray-200">Day</div>
-            {timeBoundaries.slice(0, -1).map((timeBoundary) => (
-              <div
-                key={timeBoundary}
-                className="flex min-h-12 items-center justify-center border-r border-gray-100 px-2 last:border-r-0"
-              >
-                {formatTimeLabel(timeBoundary)}
-              </div>
-            ))}
+            <div className="sticky left-0 z-50 flex min-h-8 items-center justify-center border-r border-gray-200 bg-gray-50 px-1">
+              Day
+            </div>
+            {renderTimeAxisCells(timeBoundaries)}
           </div>
 
           <div>
@@ -607,20 +624,21 @@ export function TimetablePage() {
                 (currentLaneCount, lesson) => Math.max(currentLaneCount, lesson.lane + 1),
                 1,
               );
-              const rowHeight = Math.max(132, laneCount * 96 + 20);
+              const rowHeight = Math.max(lessonLaneMinHeight, laneCount * lessonLaneMinHeight);
 
               return (
                 <div
                   key={day}
-                  className="grid items-stretch border-b border-gray-100 last:border-b-0"
+                  className="relative grid items-stretch border-b border-gray-100 last:border-b-0"
                   style={{
                     gridTemplateColumns,
+                    gridTemplateRows: `repeat(${laneCount}, minmax(${lessonLaneMinHeight}px, auto))`,
                     minHeight: `${rowHeight}px`,
                   }}
                 >
                   <div
-                    className="z-10 flex items-center justify-center border-r border-gray-100 bg-gray-50/80 px-3 text-sm font-semibold text-gray-500"
-                    style={{ gridColumn: 1, gridRow: 1 }}
+                    className="sticky left-0 z-30 flex items-center justify-center border-r border-gray-100 bg-gray-50/95 px-1 text-[10px] font-semibold text-gray-500"
+                    style={{ gridColumn: 1, gridRow: `1 / ${laneCount + 1}` }}
                   >
                     {day}
                   </div>
@@ -628,19 +646,20 @@ export function TimetablePage() {
                   {timeBoundaries.slice(0, -1).map((timeBoundary, timeIndex) => (
                     <div
                       key={`${day}-${timeBoundary}`}
-                      className="border-r border-gray-100 last:border-r-0"
-                      style={{ gridColumn: timeIndex + 2, gridRow: 1 }}
+                      className="pointer-events-none relative z-20 border-r border-gray-100 last:border-r-0"
+                      style={{ gridColumn: timeIndex + 2, gridRow: `1 / ${laneCount + 1}` }}
                     />
                   ))}
 
                   {placedLessons.map((placedLesson) => {
                     const lessonStyle: CSSProperties = {
-                      alignSelf: 'start',
+                      alignSelf: 'stretch',
                       gridColumn: `${placedLesson.startIndex + 2} / ${placedLesson.endIndex + 2}`,
-                      gridRow: 1,
-                      marginLeft: '8px',
-                      marginRight: '8px',
-                      marginTop: `${placedLesson.lane * 92 + 8}px`,
+                      gridRow: placedLesson.lane + 1,
+                      marginLeft: '3px',
+                      marginRight: '3px',
+                      marginTop: '3px',
+                      marginBottom: '3px',
                     };
                     const handleSelect = placedLesson.variant === 'available'
                       ? () => selectAvailableLesson(placedLesson.module, placedLesson.lesson)

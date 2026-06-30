@@ -1,4 +1,5 @@
-import type { TimetableModule } from '../timetable-api';
+import type { TimetableModule } from '../adapters/current-user-timetable-adapter';
+import { formatSingaporeTimetableTime } from '../timetable-time';
 
 type CurrentModuleLayoutProps = {
   modules: TimetableModule[];
@@ -41,7 +42,7 @@ export function CurrentModuleLayout({ modules }: CurrentModuleLayoutProps) {
               </p>
               <p className="mt-2 text-xs font-medium text-gray-500">
                 {module.availableLessons.length} available lesson{module.availableLessons.length === 1 ? '' : 's'}
-                {module.examDate ? ` - Exam ${module.examDate}` : ''}
+                {module.examDate ? ` - Exam ${formatSingaporeTimetableTime(module.examDate)}` : ''}
               </p>
             </article>
           ))}

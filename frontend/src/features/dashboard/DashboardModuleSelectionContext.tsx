@@ -12,7 +12,7 @@ import {
   type PlannedModuleRecord,
   type PlannedModuleStatus,
   type SemesterRecord,
-} from '@/features/planner-api';
+} from '@/features/planner';
 import type { DashboardModule } from './types';
 
 type YearNumber = 1 | 2 | 3 | 4;

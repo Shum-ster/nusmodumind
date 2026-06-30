@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { TimetableLesson } from '../timetable-api';
+import type { TimetableLesson } from '../adapters/current-user-timetable-adapter';
 
 type LessonSelectionVariant = 'selected' | 'available';
 
@@ -39,18 +39,19 @@ export function LessonSelection({
       onClick={onSelect}
       disabled={isPending}
       style={style}
-      className={`z-10 flex min-h-[84px] flex-col justify-between rounded border p-2 text-left text-xs font-medium shadow-sm transition ${colorClass} ${hoverClass} ${activeClass} ${isPending ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}
+      className={`z-10 flex min-h-0 min-w-0 flex-col gap-1 rounded border p-1.5 text-left text-[9px] font-medium leading-tight shadow-sm transition ${colorClass} ${hoverClass} ${activeClass} ${isPending ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}
     >
-      <span className="flex items-start justify-between gap-2">
-        <span className="font-bold">{lesson.moduleCode}</span>
-        <span className="shrink-0 rounded-sm bg-white/60 px-1.5 py-0.5 text-[10px] font-bold">
-          {lesson.lessonType} {lesson.classNo}
+      <span className="grid min-w-0 gap-1">
+        <span className="break-all font-bold leading-none">{lesson.moduleCode}</span>
+        <span className="max-w-full break-words rounded-sm bg-white/60 px-1 py-0.5 text-[8px] font-bold leading-none">
+          {lesson.lessonType}
+          <span className="block break-all">{lesson.classNo}</span>
         </span>
       </span>
 
-      <span className="mt-1 grid gap-0.5">
-        <span>{lesson.venue}</span>
-        {lesson.weeks ? <span>Weeks {lesson.weeks}</span> : null}
+      <span className="mt-auto grid min-w-0 gap-0.5">
+        <span className="break-words">{lesson.venue}</span>
+        {lesson.weeks ? <span className="break-words">Wk {lesson.weeks}</span> : null}
       </span>
     </button>
   );
