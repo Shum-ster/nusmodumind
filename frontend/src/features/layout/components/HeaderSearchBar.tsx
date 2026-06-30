@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { searchNusModules, type NusModuleListItem } from '@/features/courses';
 import { useDashboardModuleSelection } from '@/features/dashboard/DashboardModuleSelectionContext';
 import { setDashboardModuleDragData } from '@/features/dashboard/dashboard-drag';
+import { isModuleSuEligible } from '@/features/dashboard/dashboard-grades';
 import type { DashboardModule } from '@/features/dashboard/types';
 
 const maxSearchResults = 8;
@@ -30,6 +31,7 @@ function toDashboardModule(module: NusModuleListItem): DashboardModule {
     faculty: module.faculty,
     credits: Number(module.moduleCredit) || 0,
     estimatedWorkload: getEstimatedWorkload(module.workload),
+    isSuEligible: isModuleSuEligible(module.attributes),
     prerequisite: module.prerequisite,
     semesterData: module.semesterData,
   };

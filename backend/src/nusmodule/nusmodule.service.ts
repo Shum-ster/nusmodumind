@@ -82,6 +82,7 @@ export class NusmoduleService {
         prerequisite: true,
         semesterData: true,
         workload: true,
+        attributes: true,
         gradingBasisDescription: true,
       },
     });

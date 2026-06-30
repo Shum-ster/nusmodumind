@@ -32,8 +32,8 @@ export type PlannedModulePayload = {
   moduleCode: string;
   status?: PlannedModuleStatus;
   semesterId?: string | null;
-  expectedGrade?: string;
-  actualGrade?: string;
+  expectedGrade?: string | null;
+  actualGrade?: string | null;
   selectedLessons?: unknown;
 };
 

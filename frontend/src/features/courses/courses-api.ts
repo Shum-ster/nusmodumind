@@ -9,6 +9,7 @@ export type NusModuleListItem = {
   prerequisite?: string | null;
   semesterData?: unknown;
   workload?: unknown;
+  attributes?: unknown;
   gradingBasisDescription: string;
 };
 

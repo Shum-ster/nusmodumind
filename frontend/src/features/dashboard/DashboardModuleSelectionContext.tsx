@@ -13,6 +13,7 @@ import {
   type PlannedModuleStatus,
   type SemesterRecord,
 } from '@/features/planner';
+import { isModuleSuEligible, normalizeDashboardGrade, type DashboardGrade } from './dashboard-grades';
 import type { DashboardModule } from './types';
 
 type YearNumber = 1 | 2 | 3 | 4;
@@ -20,6 +21,7 @@ type SemesterNumber = 1 | 2;
 type SemesterKey = `year-${YearNumber}-semester-${SemesterNumber}`;
 
 type DashboardModuleSelectionContextValue = {
+  completedSemesterKeys: Record<SemesterKey, boolean>;
   exemptedModules: DashboardModule[];
   semesterModules: Record<SemesterKey, DashboardModule[]>;
   selectedModules: DashboardModule[];
@@ -30,6 +32,8 @@ type DashboardModuleSelectionContextValue = {
   moveModuleToSelected: (moduleCode: string, fallbackModule?: DashboardModule) => void;
   moveModuleToSemester: (semesterKey: SemesterKey, moduleCode: string, fallbackModule?: DashboardModule) => void;
   removeSelectedModule: (moduleCode: string) => void;
+  toggleSemesterCompletion: (semesterKey: SemesterKey) => void;
+  updateModuleActualGrade: (moduleCode: string, actualGrade: DashboardGrade | null) => void;
 };
 
 const DashboardModuleSelectionContext = createContext<DashboardModuleSelectionContextValue | null>(null);
@@ -63,6 +67,12 @@ function cloneInitialSemesterModules() {
   ) as Record<SemesterKey, DashboardModule[]>;
 }
 
+function cloneInitialCompletedSemesterKeys() {
+  return Object.fromEntries(
+    Object.keys(initialSemesterModules).map((semesterKey) => [semesterKey, false]),
+  ) as Record<SemesterKey, boolean>;
+}
+
 function getEstimatedWorkload(workload: unknown) {
   if (!Array.isArray(workload)) {
     return 0;
@@ -84,6 +94,8 @@ function toDashboardModule(plannedModule: PlannedModuleRecord): DashboardModule 
     faculty: plannedModule.module.faculty,
     credits: Number(plannedModule.module.moduleCredit) || 0,
     estimatedWorkload: getEstimatedWorkload(plannedModule.module.workload),
+    actualGrade: normalizeDashboardGrade(plannedModule.actualGrade),
+    isSuEligible: isModuleSuEligible(plannedModule.module.attributes),
     prerequisite: plannedModule.module.prerequisite,
     semesterData: plannedModule.module.semesterData,
   };
@@ -144,6 +156,7 @@ function removeModuleFromSemesterState(
 }
 
 export function DashboardModuleSelectionProvider({ children }: DashboardModuleSelectionProviderProps) {
+  const [completedSemesterKeys, setCompletedSemesterKeys] = useState(cloneInitialCompletedSemesterKeys);
   const [exemptedModules, setExemptedModules] = useState<DashboardModule[]>([]);
   const [selectedModules, setSelectedModules] = useState<DashboardModule[]>([]);
   const [semesterModules, setSemesterModules] = useState(cloneInitialSemesterModules);
@@ -179,6 +192,7 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
 
         const nextExemptedModules: DashboardModule[] = [];
         const nextSelectedModules: DashboardModule[] = [];
+        const nextCompletedSemesterKeys = cloneInitialCompletedSemesterKeys();
         const nextSemesterModules = cloneInitialSemesterModules();
         const nextPlannedModuleIdsByCode: PlannedModuleIdsByCode = {};
         const nextSemesterRecordsByKey: SemesterRecordsByKey = {};
@@ -209,6 +223,8 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
                 ...nextSemesterModules[semesterKey],
                 dashboardModule,
               ];
+              nextCompletedSemesterKeys[semesterKey] = nextCompletedSemesterKeys[semesterKey]
+                || dashboardModule.actualGrade !== null;
               nextSemesterRecordsByKey[semesterKey] = plannedModule.semester;
               return;
             }
@@ -219,6 +235,7 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
 
         plannedModuleIdsByCodeRef.current = nextPlannedModuleIdsByCode;
         semesterRecordsByKeyRef.current = nextSemesterRecordsByKey;
+        setCompletedSemesterKeys(nextCompletedSemesterKeys);
         setExemptedModules(nextExemptedModules);
         setSelectedModules(nextSelectedModules);
         setSemesterModules(nextSemesterModules);
@@ -298,6 +315,32 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
       registerPlannedModule(module.code, plannedModule.id);
     } finally {
       delete pendingPlannedModuleCreatesRef.current[module.code];
+    }
+  }, [registerPlannedModule]);
+
+  const persistModuleActualGrade = useCallback(async (
+    moduleCode: string,
+    actualGrade: DashboardGrade | null,
+  ) => {
+    const token = tokenRef.current;
+
+    if (!token) {
+      return;
+    }
+
+    const existingPlannedModuleId = plannedModuleIdsByCodeRef.current[moduleCode];
+    const pendingCreate = pendingPlannedModuleCreatesRef.current[moduleCode];
+
+    if (existingPlannedModuleId) {
+      await updatePlannedModule(token, existingPlannedModuleId, { actualGrade });
+      return;
+    }
+
+    if (pendingCreate) {
+      const plannedModule = await pendingCreate;
+
+      registerPlannedModule(moduleCode, plannedModule.id);
+      await updatePlannedModule(token, plannedModule.id, { actualGrade });
     }
   }, [registerPlannedModule]);
 
@@ -484,8 +527,37 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
       .catch(() => undefined);
   }, [ensureSemester, findModuleByCode, persistModulePlacement, removeModuleFromBuckets]);
 
+  const toggleSemesterCompletion = useCallback((semesterKey: SemesterKey) => {
+    setCompletedSemesterKeys((currentCompletedSemesterKeys) => ({
+      ...currentCompletedSemesterKeys,
+      [semesterKey]: !currentCompletedSemesterKeys[semesterKey],
+    }));
+  }, []);
+
+  const updateModuleActualGrade = useCallback((moduleCode: string, actualGrade: DashboardGrade | null) => {
+    const updateModule = (module: DashboardModule) => (
+      module.code === moduleCode ? { ...module, actualGrade } : module
+    );
+
+    setSelectedModules((currentModules) => currentModules.map(updateModule));
+    setExemptedModules((currentModules) => currentModules.map(updateModule));
+    setSemesterModules((currentSemesters) => {
+      const nextSemesters = { ...currentSemesters };
+
+      Object.keys(nextSemesters).forEach((currentSemesterKey) => {
+        const typedSemesterKey = currentSemesterKey as SemesterKey;
+        nextSemesters[typedSemesterKey] = nextSemesters[typedSemesterKey].map(updateModule);
+      });
+
+      return nextSemesters;
+    });
+
+    void persistModuleActualGrade(moduleCode, actualGrade).catch(() => undefined);
+  }, [persistModuleActualGrade]);
+
   const value = useMemo(
     () => ({
+      completedSemesterKeys,
       exemptedModules,
       semesterModules,
       selectedModules,
@@ -496,9 +568,12 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
       moveModuleToSelected,
       moveModuleToSemester,
       removeSelectedModule,
+      toggleSemesterCompletion,
+      updateModuleActualGrade,
     }),
     [
       addSelectedModule,
+      completedSemesterKeys,
       exemptedModules,
       isModuleInPlan,
       isModuleSelected,
@@ -508,6 +583,8 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
       removeSelectedModule,
       selectedModules,
       semesterModules,
+      toggleSemesterCompletion,
+      updateModuleActualGrade,
     ],
   );
 

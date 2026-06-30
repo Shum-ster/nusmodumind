@@ -1,4 +1,5 @@
 import type { SemesterKey, SemesterNumber, YearNumber } from './DashboardModuleSelectionContext';
+import { isGradePassingPrerequisite } from './dashboard-grades';
 import type { DashboardModule } from './types';
 
 export type UnsatisfiedModuleIssue = {
@@ -66,7 +67,9 @@ function getPrerequisiteIssue(
 
   const completedModuleCodes = new Set([
     ...exemptedModules.map((currentModule) => currentModule.code),
-    ...getPreviousSemesterModules(semesterKey, semesterModules).map((currentModule) => currentModule.code),
+    ...getPreviousSemesterModules(semesterKey, semesterModules)
+      .filter((currentModule) => isGradePassingPrerequisite(currentModule.actualGrade))
+      .map((currentModule) => currentModule.code),
   ]);
   const hasSatisfiedPrerequisite = prerequisiteModuleCodes.some((moduleCode) => completedModuleCodes.has(moduleCode));
 
