@@ -31,6 +31,9 @@ describe('NusmoduleController', () => {
         faculty: nusModule.faculty,
         department: nusModule.department,
         moduleCredit: nusModule.moduleCredit,
+        prerequisite: nusModule.prerequisite,
+        semesterData: nusModule.semesterData,
+        workload: nusModule.workload,
         gradingBasisDescription: nusModule.gradingBasisDescription,
       },
     ],
@@ -62,6 +65,7 @@ describe('NusmoduleController', () => {
         'Computer Science',
         'School of Computing',
         '25',
+        'CS',
         'programming',
       ),
     ).resolves.toEqual(paginatedResponse);
@@ -70,6 +74,7 @@ describe('NusmoduleController', () => {
       department: 'Computer Science',
       faculty: 'School of Computing',
       limit: 25,
+      moduleCodePrefix: 'CS',
       search: 'programming',
     });
   });
@@ -82,6 +87,7 @@ describe('NusmoduleController', () => {
       department: undefined,
       faculty: undefined,
       limit: undefined,
+      moduleCodePrefix: undefined,
       search: undefined,
     });
   });

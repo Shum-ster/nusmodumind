@@ -7,6 +7,7 @@ type FindAllModulesOptions = {
   department?: string;
   faculty?: string;
   limit?: number;
+  moduleCodePrefix?: string;
   search?: string;
 };
 
@@ -17,9 +18,23 @@ export class NusmoduleService {
   async findAll(options: FindAllModulesOptions = {}) {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 50);
     const normalizedCursor = options.cursor?.trim().toUpperCase();
+    const normalizedModuleCodePrefix = options.moduleCodePrefix
+      ?.trim()
+      .toUpperCase();
     const normalizedSearch = options.search?.trim();
+    const moduleCodeFilter: Prisma.StringFilter<'NusModule'> = {
+      ...(normalizedCursor ? { gt: normalizedCursor } : {}),
+      ...(normalizedModuleCodePrefix
+        ? {
+            startsWith: normalizedModuleCodePrefix,
+            mode: 'insensitive',
+          }
+        : {}),
+    };
     const where: Prisma.NusModuleWhereInput = {
-      ...(normalizedCursor ? { moduleCode: { gt: normalizedCursor } } : {}),
+      ...(Object.keys(moduleCodeFilter).length > 0
+        ? { moduleCode: moduleCodeFilter }
+        : {}),
       ...(options.faculty ? { faculty: options.faculty } : {}),
       ...(options.department ? { department: options.department } : {}),
       ...(normalizedSearch
@@ -64,6 +79,10 @@ export class NusmoduleService {
         faculty: true,
         department: true,
         moduleCredit: true,
+        prerequisite: true,
+        semesterData: true,
+        workload: true,
+        attributes: true,
         gradingBasisDescription: true,
       },
     });

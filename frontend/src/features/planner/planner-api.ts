@@ -1,5 +1,5 @@
-import { apiRequest } from "@/features/api";
-import type { NusModuleDetail } from "@/features/courses/courses-api";
+import type { NusModuleDetail } from "@/features/courses";
+import { apiRequest } from "@/shared/api";
 
 export type PlannedModuleStatus = "SELECTED" | "EXEMPTED" | "PLANNED";
 
@@ -32,8 +32,8 @@ export type PlannedModulePayload = {
   moduleCode: string;
   status?: PlannedModuleStatus;
   semesterId?: string | null;
-  expectedGrade?: string;
-  actualGrade?: string;
+  expectedGrade?: string | null;
+  actualGrade?: string | null;
   selectedLessons?: unknown;
 };
 
@@ -70,16 +70,22 @@ export function updatePlannedModule(
   id: string,
   body: Partial<PlannedModulePayload>,
 ) {
-  return apiRequest<PlannedModuleRecord>(`/planned-modules/${id}`, {
-    method: "PATCH",
-    token,
-    body,
-  });
+  return apiRequest<PlannedModuleRecord>(
+    `/planned-modules/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      token,
+      body,
+    },
+  );
 }
 
 export function deletePlannedModule(token: string, id: string) {
-  return apiRequest<PlannedModuleRecord>(`/planned-modules/${id}`, {
-    method: "DELETE",
-    token,
-  });
+  return apiRequest<PlannedModuleRecord>(
+    `/planned-modules/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      token,
+    },
+  );
 }

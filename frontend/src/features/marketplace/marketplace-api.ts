@@ -1,4 +1,4 @@
-import { apiRequest } from "@/features/api";
+import { apiRequest } from "@/shared/api";
 
 export type MarketplaceAuthor = {
   username: string | null;

@@ -1,4 +1,4 @@
-import { apiRequest } from "@/features/api";
+import { apiRequest } from "@/shared/api";
 import type { AuthCredentials } from "../types";
 
 type LoginResponse = {

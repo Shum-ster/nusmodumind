@@ -28,6 +28,43 @@ describe('NusModulesCronService', () => {
     semesterData: [{ semester: 1, examDate: '2026-05-01T09:00:00.000Z' }],
     attributes: { su: true },
   };
+  const moduleDetail = {
+    ...moduleInfo,
+    semesterData: [
+      {
+        semester: 1,
+        examDate: '2026-05-01T09:00:00.000Z',
+        timetable: [
+          {
+            classNo: '1',
+            day: 'Monday',
+            endTime: '1000',
+            lessonType: 'Lecture',
+            startTime: '0800',
+            venue: 'LT19',
+            weeks: [1, 2, 3],
+          },
+        ],
+      },
+    ],
+  };
+
+  function mockNusModsResponses(modules: (typeof moduleInfo)[]) {
+    httpService.get.mockImplementation((url: string) => {
+      if (url.endsWith('/moduleInfo.json')) {
+        return of({ data: modules });
+      }
+
+      const moduleCode = url.match(/\/modules\/(.+)\.json$/)?.[1];
+      const matchingModule = modules.find(
+        (currentModule) => currentModule.moduleCode === moduleCode,
+      );
+
+      return of({
+        data: matchingModule ? { ...matchingModule } : moduleDetail,
+      });
+    });
+  }
 
   beforeEach(async () => {
     httpService = {
@@ -56,33 +93,38 @@ describe('NusModulesCronService', () => {
   });
 
   it('fetches NUSMods data and upserts all current top-level fields into Prisma', async () => {
-    httpService.get.mockReturnValue(of({ data: [moduleInfo] }));
+    httpService.get
+      .mockReturnValueOnce(of({ data: [moduleInfo] }))
+      .mockReturnValueOnce(of({ data: moduleDetail }));
 
     await service.syncNusModsData();
 
     const expectedModuleData = {
-      title: moduleInfo.title,
-      description: moduleInfo.description,
-      moduleCredit: moduleInfo.moduleCredit,
-      department: moduleInfo.department,
-      faculty: moduleInfo.faculty,
-      gradingBasisDescription: moduleInfo.gradingBasisDescription,
-      prerequisite: moduleInfo.prerequisite,
-      preclusion: moduleInfo.preclusion,
-      corequisite: moduleInfo.corequisite,
-      workload: moduleInfo.workload,
-      semesterData: moduleInfo.semesterData,
-      attributes: moduleInfo.attributes,
+      title: moduleDetail.title,
+      description: moduleDetail.description,
+      moduleCredit: moduleDetail.moduleCredit,
+      department: moduleDetail.department,
+      faculty: moduleDetail.faculty,
+      gradingBasisDescription: moduleDetail.gradingBasisDescription,
+      prerequisite: moduleDetail.prerequisite,
+      preclusion: moduleDetail.preclusion,
+      corequisite: moduleDetail.corequisite,
+      workload: moduleDetail.workload,
+      semesterData: moduleDetail.semesterData,
+      attributes: moduleDetail.attributes,
     };
 
     expect(httpService.get).toHaveBeenCalledWith(
       'https://api.nusmods.com/v2/2025-2026/moduleInfo.json',
     );
+    expect(httpService.get).toHaveBeenCalledWith(
+      'https://api.nusmods.com/v2/2025-2026/modules/CS1010S.json',
+    );
     expect(prisma.nusModule.upsert).toHaveBeenCalledWith({
-      where: { moduleCode: moduleInfo.moduleCode },
+      where: { moduleCode: moduleDetail.moduleCode },
       update: expectedModuleData,
       create: {
-        moduleCode: moduleInfo.moduleCode,
+        moduleCode: moduleDetail.moduleCode,
         ...expectedModuleData,
       },
     });
@@ -90,16 +132,14 @@ describe('NusModulesCronService', () => {
   });
 
   it('keeps modules with empty semesterData', async () => {
-    httpService.get.mockReturnValue(
-      of({
-        data: [
-          {
-            ...moduleInfo,
-            semesterData: [],
-          },
-        ],
-      }),
-    );
+    const moduleWithoutSemesterData = {
+      ...moduleInfo,
+      semesterData: [],
+    };
+
+    httpService.get
+      .mockReturnValueOnce(of({ data: [moduleWithoutSemesterData] }))
+      .mockReturnValueOnce(of({ data: moduleWithoutSemesterData }));
 
     await service.syncNusModsData();
 
@@ -119,10 +159,11 @@ describe('NusModulesCronService', () => {
       ...moduleInfo,
       moduleCode: `CS${index}`,
     }));
-    httpService.get.mockReturnValue(of({ data: modules }));
+    mockNusModsResponses(modules);
 
     await service.syncNusModsData();
 
+    expect(httpService.get).toHaveBeenCalledTimes(502);
     expect(prisma.nusModule.upsert).toHaveBeenCalledTimes(501);
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
     const transactionCalls = prisma.$transaction.mock.calls as [unknown[]][];
@@ -131,26 +172,24 @@ describe('NusModulesCronService', () => {
   });
 
   it('uses safe defaults when NUSMods omits required schema fields', async () => {
-    httpService.get.mockReturnValue(
-      of({
-        data: [
-          {
-            ...moduleInfo,
-            description: undefined,
-            department: undefined,
-            faculty: undefined,
-            gradingBasisDescription: undefined,
-            moduleCredit: undefined,
-            prerequisite: undefined,
-            preclusion: undefined,
-            corequisite: undefined,
-            workload: undefined,
-            semesterData: undefined,
-            attributes: undefined,
-          },
-        ],
-      }),
-    );
+    const incompleteModule = {
+      ...moduleInfo,
+      description: undefined,
+      department: undefined,
+      faculty: undefined,
+      gradingBasisDescription: undefined,
+      moduleCredit: undefined,
+      prerequisite: undefined,
+      preclusion: undefined,
+      corequisite: undefined,
+      workload: undefined,
+      semesterData: undefined,
+      attributes: undefined,
+    };
+
+    httpService.get
+      .mockReturnValueOnce(of({ data: [incompleteModule] }))
+      .mockReturnValueOnce(of({ data: incompleteModule }));
 
     await service.syncNusModsData();
 

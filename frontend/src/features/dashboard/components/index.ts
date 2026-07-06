@@ -1,6 +1,10 @@
 export { DashboardPage } from '../DashboardPage';
-export { DashboardSemesterLayout } from './semesterLayout/dashboardSemesterLayout';
-export { DashboardYearLayout } from './semesterLayout/dashboardYearLayout';
-export { ExemptedModules } from './rightLayout/exemptedModules';
-export { ModuleNameLayout } from './moduleNameLayout';
-export { SelectedModules } from './rightLayout/selectedModules';
+export { DashboardActionButtons } from './DashboardActionButtons';
+export { DashboardModuleCard } from './DashboardModuleCard';
+export { DashboardModuleSearchBar } from './DashboardModuleSearchBar';
+export { DashboardSemesterLayout } from './yearLayout/DashboardSemesterLayout';
+export { DashboardYearLayout } from './yearLayout/DashboardYearLayout';
+export { CompletedSemester, SemesterCompletionToggle } from './yearLayout/CompletedSemester';
+export { ExemptedModules } from './ExemptedModules';
+export { SelectedModules } from './SelectedModules';
+export { UnsatisfiedModule } from './UnsatisfiedModule';

@@ -1,4 +1,5 @@
-import { DashboardLayout, DashboardPage } from '../../dashboard';
+import { DashboardPage } from '@/features/dashboard';
+import { DashboardLayout } from '@/features/layout';
 
 type MainAppPageProps = {
   status: string;

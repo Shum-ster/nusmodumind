@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { DashboardLayout } from '../../dashboard';
+import { DashboardLayout } from '@/features/layout';
 import { getCurrentUser } from '../lib/auth-api';
 import { clearToken, getToken } from '../lib/token-storage';
 
