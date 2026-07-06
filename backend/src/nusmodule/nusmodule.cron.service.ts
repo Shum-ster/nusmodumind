@@ -138,7 +138,7 @@ export class NusModulesCronService {
   }
 
   private async upsertNusModsModules(modules: NusModsModuleInfo[]) {
-    const batchSize = 500;
+    const batchSize = 100;
     let processedCount = 0;
 
     for (let i = 0; i < modules.length; i += batchSize) {
