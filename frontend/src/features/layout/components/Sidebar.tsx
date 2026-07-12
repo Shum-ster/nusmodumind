@@ -1,9 +1,9 @@
-import { LayoutDashboard, Calendar, BookOpen, BookSearch } from 'lucide-react';
+import { Calendar, BookOpen, BookSearch, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { LogoutButton } from './LogoutButton';
 
 type SidebarProps = {
-  activePage: 'dashboard' | 'timetable' | 'courses' | 'marketplace';
+  activePage: 'dashboard' | 'timetable' | 'courses' | 'popular-choices';
   onLogout: () => void;
 };
 
@@ -11,7 +11,7 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { id: 'timetable', label: 'Timetable', icon: Calendar, href: '/timetable' },
   { id: 'courses', label: 'My Courses', icon: BookOpen, href: '/courses' },
-  { id: 'marketplace', label: 'Marketplace', icon: BookSearch, href: '/marketplace' },
+  { id: 'popular-choices', label: 'Popular Choices', icon: BookSearch, href: '/popular-choices' },
 ] as const;
 
 export function Sidebar({ activePage, onLogout }: SidebarProps) {

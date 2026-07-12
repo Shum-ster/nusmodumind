@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { DashboardModuleSelectionProvider } from '@/features/dashboard/DashboardModuleSelectionContext';
 import { Header, Sidebar } from '../../';
 
-type TabName = 'dashboard' | 'timetable' | 'courses' | 'marketplace';
+type TabName = 'dashboard' | 'timetable' | 'courses' | 'popular-choices';
 
 type DashboardLayoutProps = {
   children: ReactNode;
@@ -16,13 +16,13 @@ const pageByPath: Record<string, TabName> = {
   '/dashboard': 'dashboard',
   '/timetable': 'timetable',
   '/courses': 'courses',
-  '/marketplace': 'marketplace',
+  '/popular-choices': 'popular-choices',
 };
 
 export function DashboardLayout({ children, onLogout }: DashboardLayoutProps) {
   const pathname = usePathname();
-  const activePage = pathname.startsWith('/marketplace/')
-    ? 'marketplace'
+  const activePage = pathname.startsWith('/popular-choices/')
+    ? 'popular-choices'
     : pageByPath[pathname] ?? 'dashboard';
 
   return (
