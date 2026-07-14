@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
 import { getToken } from '@/features/auth/lib/token-storage';
 import {
@@ -13,7 +21,12 @@ import {
   type PlannedModuleStatus,
   type SemesterRecord,
 } from '@/features/planner';
-import { isModuleSuEligible, normalizeDashboardGrade, type DashboardGrade } from './dashboard-grades';
+import { useUserProfile } from '@/features/user';
+import {
+  isModuleSuEligible,
+  normalizeDashboardGrade,
+  type DashboardGrade,
+} from './dashboard-grades';
 import type { DashboardModule } from './types';
 
 type YearNumber = 1 | 2 | 3 | 4;
@@ -23,20 +36,35 @@ type SemesterKey = `year-${YearNumber}-semester-${SemesterNumber}`;
 type DashboardModuleSelectionContextValue = {
   completedSemesterKeys: Record<SemesterKey, boolean>;
   exemptedModules: DashboardModule[];
+  matriculationYear: number;
   semesterModules: Record<SemesterKey, DashboardModule[]>;
   selectedModules: DashboardModule[];
   addSelectedModule: (module: DashboardModule) => void;
   isModuleInPlan: (moduleCode: string) => boolean;
   isModuleSelected: (moduleCode: string) => boolean;
-  moveModuleToExempted: (moduleCode: string, fallbackModule?: DashboardModule) => void;
-  moveModuleToSelected: (moduleCode: string, fallbackModule?: DashboardModule) => void;
-  moveModuleToSemester: (semesterKey: SemesterKey, moduleCode: string, fallbackModule?: DashboardModule) => void;
+  moveModuleToExempted: (
+    moduleCode: string,
+    fallbackModule?: DashboardModule,
+  ) => void;
+  moveModuleToSelected: (
+    moduleCode: string,
+    fallbackModule?: DashboardModule,
+  ) => void;
+  moveModuleToSemester: (
+    semesterKey: SemesterKey,
+    moduleCode: string,
+    fallbackModule?: DashboardModule,
+  ) => void;
   removeSelectedModule: (moduleCode: string) => void;
   toggleSemesterCompletion: (semesterKey: SemesterKey) => void;
-  updateModuleActualGrade: (moduleCode: string, actualGrade: DashboardGrade | null) => void;
+  updateModuleActualGrade: (
+    moduleCode: string,
+    actualGrade: DashboardGrade | null,
+  ) => void;
 };
 
-const DashboardModuleSelectionContext = createContext<DashboardModuleSelectionContextValue | null>(null);
+const DashboardModuleSelectionContext =
+  createContext<DashboardModuleSelectionContextValue | null>(null);
 
 type DashboardModuleSelectionProviderProps = {
   children: ReactNode;
@@ -57,6 +85,7 @@ const initialSemesterModules: Record<SemesterKey, DashboardModule[]> = {
 };
 
 const defaultMatriculationYear = 2026;
+const planDurationYears = 4;
 
 function cloneInitialSemesterModules() {
   return Object.fromEntries(
@@ -69,7 +98,10 @@ function cloneInitialSemesterModules() {
 
 function cloneInitialCompletedSemesterKeys() {
   return Object.fromEntries(
-    Object.keys(initialSemesterModules).map((semesterKey) => [semesterKey, false]),
+    Object.keys(initialSemesterModules).map((semesterKey) => [
+      semesterKey,
+      false,
+    ]),
   ) as Record<SemesterKey, boolean>;
 }
 
@@ -79,15 +111,18 @@ function getEstimatedWorkload(workload: unknown) {
   }
 
   return workload.reduce((total, workloadPart) => {
-    const numericWorkloadPart = typeof workloadPart === 'number'
-      ? workloadPart
-      : Number(workloadPart);
+    const numericWorkloadPart =
+      typeof workloadPart === 'number' ? workloadPart : Number(workloadPart);
 
-    return Number.isFinite(numericWorkloadPart) ? total + numericWorkloadPart : total;
+    return Number.isFinite(numericWorkloadPart)
+      ? total + numericWorkloadPart
+      : total;
   }, 0);
 }
 
-function toDashboardModule(plannedModule: PlannedModuleRecord): DashboardModule {
+function toDashboardModule(
+  plannedModule: PlannedModuleRecord,
+): DashboardModule {
   return {
     code: plannedModule.module.moduleCode,
     title: plannedModule.module.title,
@@ -110,9 +145,20 @@ function parseSemesterKey(semesterKey: SemesterKey) {
   };
 }
 
-function getAcadYearForSemesterKey(semesterKey: SemesterKey) {
+function getMatriculationYearFromGraduationYear(
+  graduationYear?: number | null,
+) {
+  return graduationYear
+    ? graduationYear - planDurationYears
+    : defaultMatriculationYear;
+}
+
+function getAcadYearForSemesterKey(
+  semesterKey: SemesterKey,
+  matriculationYear: number,
+) {
   const { yearNumber } = parseSemesterKey(semesterKey);
-  const academicYearStart = defaultMatriculationYear + yearNumber - 1;
+  const academicYearStart = matriculationYear + yearNumber - 1;
 
   return `${academicYearStart}/${academicYearStart + 1}`;
 }
@@ -123,14 +169,20 @@ function getAcademicYearStart(acadYear: string) {
   return yearMatch ? Number(yearMatch[0]) : null;
 }
 
-function getSemesterKeyFromRecord(semester: SemesterRecord): SemesterKey | null {
+function getSemesterKeyFromRecord(
+  semester: SemesterRecord,
+  matriculationYear: number,
+): SemesterKey | null {
   const academicYearStart = getAcademicYearStart(semester.acadYear);
 
-  if (academicYearStart === null || (semester.semesterNumber !== 1 && semester.semesterNumber !== 2)) {
+  if (
+    academicYearStart === null ||
+    (semester.semesterNumber !== 1 && semester.semesterNumber !== 2)
+  ) {
     return null;
   }
 
-  const yearNumber = academicYearStart - defaultMatriculationYear + 1;
+  const yearNumber = academicYearStart - matriculationYear + 1;
 
   if (yearNumber < 1 || yearNumber > 4) {
     return null;
@@ -155,22 +207,42 @@ function removeModuleFromSemesterState(
   return nextSemesters;
 }
 
-export function DashboardModuleSelectionProvider({ children }: DashboardModuleSelectionProviderProps) {
-  const [completedSemesterKeys, setCompletedSemesterKeys] = useState(cloneInitialCompletedSemesterKeys);
+export function DashboardModuleSelectionProvider({
+  children,
+}: DashboardModuleSelectionProviderProps) {
+  const { profile } = useUserProfile();
+  const matriculationYear = getMatriculationYearFromGraduationYear(
+    profile?.graduationYear,
+  );
+  const [completedSemesterKeys, setCompletedSemesterKeys] = useState(
+    cloneInitialCompletedSemesterKeys,
+  );
   const [exemptedModules, setExemptedModules] = useState<DashboardModule[]>([]);
   const [selectedModules, setSelectedModules] = useState<DashboardModule[]>([]);
-  const [semesterModules, setSemesterModules] = useState(cloneInitialSemesterModules);
-  const [plannedModuleIdsByCode, setPlannedModuleIdsByCode] = useState<PlannedModuleIdsByCode>({});
+  const [semesterModules, setSemesterModules] = useState(
+    cloneInitialSemesterModules,
+  );
+  const [plannedModuleIdsByCode, setPlannedModuleIdsByCode] =
+    useState<PlannedModuleIdsByCode>({});
   const [, setSemesterRecordsByKey] = useState<SemesterRecordsByKey>({});
   const plannedModuleIdsByCodeRef = useRef<PlannedModuleIdsByCode>({});
-  const pendingPlannedModuleCreatesRef = useRef<Record<string, Promise<PlannedModuleRecord>>>({});
-  const pendingSemesterCreatesRef = useRef<Partial<Record<SemesterKey, Promise<SemesterRecord>>>>({});
+  const pendingPlannedModuleCreatesRef = useRef<
+    Record<string, Promise<PlannedModuleRecord>>
+  >({});
+  const pendingSemesterCreatesRef = useRef<
+    Partial<Record<SemesterKey, Promise<SemesterRecord>>>
+  >({});
   const semesterRecordsByKeyRef = useRef<SemesterRecordsByKey>({});
+  const matriculationYearRef = useRef(matriculationYear);
   const tokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     plannedModuleIdsByCodeRef.current = plannedModuleIdsByCode;
   }, [plannedModuleIdsByCode]);
+
+  useEffect(() => {
+    matriculationYearRef.current = matriculationYear;
+  }, [matriculationYear]);
 
   useEffect(() => {
     const token = getToken();
@@ -198,7 +270,10 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
         const nextSemesterRecordsByKey: SemesterRecordsByKey = {};
 
         plan.semesters.forEach((semester) => {
-          const semesterKey = getSemesterKeyFromRecord(semester);
+          const semesterKey = getSemesterKeyFromRecord(
+            semester,
+            matriculationYear,
+          );
 
           if (semesterKey) {
             nextSemesterRecordsByKey[semesterKey] = semester;
@@ -216,15 +291,19 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
           }
 
           if (plannedModule.status === 'PLANNED' && plannedModule.semester) {
-            const semesterKey = getSemesterKeyFromRecord(plannedModule.semester);
+            const semesterKey = getSemesterKeyFromRecord(
+              plannedModule.semester,
+              matriculationYear,
+            );
 
             if (semesterKey) {
               nextSemesterModules[semesterKey] = [
                 ...nextSemesterModules[semesterKey],
                 dashboardModule,
               ];
-              nextCompletedSemesterKeys[semesterKey] = nextCompletedSemesterKeys[semesterKey]
-                || dashboardModule.actualGrade !== null;
+              nextCompletedSemesterKeys[semesterKey] =
+                nextCompletedSemesterKeys[semesterKey] ||
+                dashboardModule.actualGrade !== null;
               nextSemesterRecordsByKey[semesterKey] = plannedModule.semester;
               return;
             }
@@ -249,15 +328,18 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
     return () => {
       isCurrentRequest = false;
     };
-  }, []);
+  }, [matriculationYear]);
 
-  const registerPlannedModule = useCallback((moduleCode: string, plannedModuleId: string) => {
-    plannedModuleIdsByCodeRef.current = {
-      ...plannedModuleIdsByCodeRef.current,
-      [moduleCode]: plannedModuleId,
-    };
-    setPlannedModuleIdsByCode(plannedModuleIdsByCodeRef.current);
-  }, []);
+  const registerPlannedModule = useCallback(
+    (moduleCode: string, plannedModuleId: string) => {
+      plannedModuleIdsByCodeRef.current = {
+        ...plannedModuleIdsByCodeRef.current,
+        [moduleCode]: plannedModuleId,
+      };
+      setPlannedModuleIdsByCode(plannedModuleIdsByCodeRef.current);
+    },
+    [],
+  );
 
   const unregisterPlannedModule = useCallback((moduleCode: string) => {
     const nextPlannedModuleIdsByCode = { ...plannedModuleIdsByCodeRef.current };
@@ -267,82 +349,89 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
     setPlannedModuleIdsByCode(nextPlannedModuleIdsByCode);
   }, []);
 
-  const persistModulePlacement = useCallback(async (
-    module: DashboardModule,
-    status: PlannedModuleStatus,
-    semesterId?: string | null,
-  ) => {
-    const token = tokenRef.current;
+  const persistModulePlacement = useCallback(
+    async (
+      module: DashboardModule,
+      status: PlannedModuleStatus,
+      semesterId?: string | null,
+    ) => {
+      const token = tokenRef.current;
 
-    if (!token) {
-      return;
-    }
+      if (!token) {
+        return;
+      }
 
-    const existingPlannedModuleId = plannedModuleIdsByCodeRef.current[module.code];
-    const pendingCreate = pendingPlannedModuleCreatesRef.current[module.code];
+      const existingPlannedModuleId =
+        plannedModuleIdsByCodeRef.current[module.code];
+      const pendingCreate = pendingPlannedModuleCreatesRef.current[module.code];
 
-    if (existingPlannedModuleId) {
-      await updatePlannedModule(token, existingPlannedModuleId, {
+      if (existingPlannedModuleId) {
+        await updatePlannedModule(token, existingPlannedModuleId, {
+          moduleCode: module.code,
+          semesterId: semesterId ?? null,
+          status,
+        });
+        return;
+      }
+
+      if (pendingCreate) {
+        const plannedModule = await pendingCreate;
+
+        registerPlannedModule(module.code, plannedModule.id);
+        await updatePlannedModule(token, plannedModule.id, {
+          moduleCode: module.code,
+          semesterId: semesterId ?? null,
+          status,
+        });
+        return;
+      }
+
+      const createPromise = createPlannedModule(token, {
         moduleCode: module.code,
         semesterId: semesterId ?? null,
         status,
       });
-      return;
-    }
 
-    if (pendingCreate) {
-      const plannedModule = await pendingCreate;
+      pendingPlannedModuleCreatesRef.current[module.code] = createPromise;
 
-      registerPlannedModule(module.code, plannedModule.id);
-      await updatePlannedModule(token, plannedModule.id, {
-        moduleCode: module.code,
-        semesterId: semesterId ?? null,
-        status,
-      });
-      return;
-    }
+      try {
+        const plannedModule = await createPromise;
+        registerPlannedModule(module.code, plannedModule.id);
+      } finally {
+        delete pendingPlannedModuleCreatesRef.current[module.code];
+      }
+    },
+    [registerPlannedModule],
+  );
 
-    const createPromise = createPlannedModule(token, {
-      moduleCode: module.code,
-      semesterId: semesterId ?? null,
-      status,
-    });
+  const persistModuleActualGrade = useCallback(
+    async (moduleCode: string, actualGrade: DashboardGrade | null) => {
+      const token = tokenRef.current;
 
-    pendingPlannedModuleCreatesRef.current[module.code] = createPromise;
+      if (!token) {
+        return;
+      }
 
-    try {
-      const plannedModule = await createPromise;
-      registerPlannedModule(module.code, plannedModule.id);
-    } finally {
-      delete pendingPlannedModuleCreatesRef.current[module.code];
-    }
-  }, [registerPlannedModule]);
+      const existingPlannedModuleId =
+        plannedModuleIdsByCodeRef.current[moduleCode];
+      const pendingCreate = pendingPlannedModuleCreatesRef.current[moduleCode];
 
-  const persistModuleActualGrade = useCallback(async (
-    moduleCode: string,
-    actualGrade: DashboardGrade | null,
-  ) => {
-    const token = tokenRef.current;
+      if (existingPlannedModuleId) {
+        await updatePlannedModule(token, existingPlannedModuleId, {
+          actualGrade,
+        });
+        return;
+      }
 
-    if (!token) {
-      return;
-    }
+      if (pendingCreate) {
+        const plannedModule = await pendingCreate;
 
-    const existingPlannedModuleId = plannedModuleIdsByCodeRef.current[moduleCode];
-    const pendingCreate = pendingPlannedModuleCreatesRef.current[moduleCode];
-
-    if (existingPlannedModuleId) {
-      await updatePlannedModule(token, existingPlannedModuleId, { actualGrade });
-      return;
-    }
-
-    if (pendingCreate) {
-      const plannedModule = await pendingCreate;
-
-      registerPlannedModule(moduleCode, plannedModule.id);
-      await updatePlannedModule(token, plannedModule.id, { actualGrade });
-    }
-  }, [registerPlannedModule]);
+        registerPlannedModule(moduleCode, plannedModule.id);
+        await updatePlannedModule(token, plannedModule.id, { actualGrade });
+      }
+    },
+    [registerPlannedModule],
+  );
 
   const ensureSemester = useCallback(async (semesterKey: SemesterKey) => {
     const token = tokenRef.current;
@@ -364,7 +453,10 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
 
     const { semesterNumber } = parseSemesterKey(semesterKey);
     const createPromise = createSemester(token, {
-      acadYear: getAcadYearForSemesterKey(semesterKey),
+      acadYear: getAcadYearForSemesterKey(
+        semesterKey,
+        matriculationYearRef.current,
+      ),
       semesterNumber,
     });
 
@@ -385,147 +477,218 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
     }
   }, []);
 
-  const addSelectedModule = useCallback((selectedModule: DashboardModule) => {
-    const isAlreadyPlanned = exemptedModules.some((currentModule) => currentModule.code === selectedModule.code)
-      || Object.values(semesterModules)
-        .flat()
-        .some((currentModule) => currentModule.code === selectedModule.code);
+  const addSelectedModule = useCallback(
+    (selectedModule: DashboardModule) => {
+      const isAlreadyPlanned =
+        exemptedModules.some(
+          (currentModule) => currentModule.code === selectedModule.code,
+        ) ||
+        Object.values(semesterModules)
+          .flat()
+          .some((currentModule) => currentModule.code === selectedModule.code);
 
-    if (isAlreadyPlanned) {
-      return;
-    }
-
-    setSelectedModules((currentModules) => {
-      if (currentModules.some((currentModule) => currentModule.code === selectedModule.code)) {
-        return currentModules;
+      if (isAlreadyPlanned) {
+        return;
       }
 
-      return [...currentModules, selectedModule];
-    });
+      setSelectedModules((currentModules) => {
+        if (
+          currentModules.some(
+            (currentModule) => currentModule.code === selectedModule.code,
+          )
+        ) {
+          return currentModules;
+        }
 
-    void persistModulePlacement(selectedModule, 'SELECTED', null).catch(() => undefined);
-  }, [exemptedModules, persistModulePlacement, semesterModules]);
+        return [...currentModules, selectedModule];
+      });
+
+      void persistModulePlacement(selectedModule, 'SELECTED', null).catch(
+        () => undefined,
+      );
+    },
+    [exemptedModules, persistModulePlacement, semesterModules],
+  );
 
   const isModuleSelected = useCallback(
-    (moduleCode: string) => selectedModules.some((selectedModule) => selectedModule.code === moduleCode),
+    (moduleCode: string) =>
+      selectedModules.some(
+        (selectedModule) => selectedModule.code === moduleCode,
+      ),
     [selectedModules],
   );
 
-  const findModuleByCode = useCallback((moduleCode: string) => (
-    selectedModules.find((currentModule) => currentModule.code === moduleCode)
-    ?? exemptedModules.find((currentModule) => currentModule.code === moduleCode)
-    ?? Object.values(semesterModules)
-      .flat()
-      .find((currentModule) => currentModule.code === moduleCode)
-  ), [exemptedModules, selectedModules, semesterModules]);
+  const findModuleByCode = useCallback(
+    (moduleCode: string) =>
+      selectedModules.find(
+        (currentModule) => currentModule.code === moduleCode,
+      ) ??
+      exemptedModules.find(
+        (currentModule) => currentModule.code === moduleCode,
+      ) ??
+      Object.values(semesterModules)
+        .flat()
+        .find((currentModule) => currentModule.code === moduleCode),
+    [exemptedModules, selectedModules, semesterModules],
+  );
 
-  const isModuleInPlan = useCallback((moduleCode: string) => Boolean(findModuleByCode(moduleCode)), [findModuleByCode]);
+  const isModuleInPlan = useCallback(
+    (moduleCode: string) => Boolean(findModuleByCode(moduleCode)),
+    [findModuleByCode],
+  );
 
   const removeModuleFromSemesters = useCallback((moduleCode: string) => {
-    setSemesterModules((currentSemesters) => removeModuleFromSemesterState(currentSemesters, moduleCode));
+    setSemesterModules((currentSemesters) =>
+      removeModuleFromSemesterState(currentSemesters, moduleCode),
+    );
   }, []);
 
-  const removeModuleFromBuckets = useCallback((moduleCode: string) => {
-    removeModuleFromSemesters(moduleCode);
-    setExemptedModules((currentModules) => (
-      currentModules.filter((currentModule) => currentModule.code !== moduleCode)
-    ));
-    setSelectedModules((currentModules) => (
-      currentModules.filter((currentModule) => currentModule.code !== moduleCode)
-    ));
-  }, [removeModuleFromSemesters]);
+  const removeModuleFromBuckets = useCallback(
+    (moduleCode: string) => {
+      removeModuleFromSemesters(moduleCode);
+      setExemptedModules((currentModules) =>
+        currentModules.filter(
+          (currentModule) => currentModule.code !== moduleCode,
+        ),
+      );
+      setSelectedModules((currentModules) =>
+        currentModules.filter(
+          (currentModule) => currentModule.code !== moduleCode,
+        ),
+      );
+    },
+    [removeModuleFromSemesters],
+  );
 
-  const removeSelectedModule = useCallback((moduleCode: string) => {
-    setSelectedModules((currentModules) => (
-      currentModules.filter((currentModule) => currentModule.code !== moduleCode)
-    ));
+  const removeSelectedModule = useCallback(
+    (moduleCode: string) => {
+      setSelectedModules((currentModules) =>
+        currentModules.filter(
+          (currentModule) => currentModule.code !== moduleCode,
+        ),
+      );
 
-    const token = tokenRef.current;
-    const plannedModuleId = plannedModuleIdsByCodeRef.current[moduleCode];
-    const pendingCreate = pendingPlannedModuleCreatesRef.current[moduleCode];
+      const token = tokenRef.current;
+      const plannedModuleId = plannedModuleIdsByCodeRef.current[moduleCode];
+      const pendingCreate = pendingPlannedModuleCreatesRef.current[moduleCode];
 
-    if (token && plannedModuleId) {
-      void deletePlannedModule(token, plannedModuleId)
-        .then(() => unregisterPlannedModule(moduleCode))
-        .catch(() => undefined);
-      return;
-    }
-
-    if (token && pendingCreate) {
-      void pendingCreate
-        .then((plannedModule) => deletePlannedModule(token, plannedModule.id))
-        .then(() => unregisterPlannedModule(moduleCode))
-        .catch(() => undefined);
-    }
-  }, [unregisterPlannedModule]);
-
-  const moveModuleToSelected = useCallback((moduleCode: string, fallbackModule?: DashboardModule) => {
-    const targetModule = findModuleByCode(moduleCode) ?? fallbackModule;
-
-    if (!targetModule) {
-      return;
-    }
-
-    removeModuleFromBuckets(moduleCode);
-
-    setSelectedModules((currentModules) => {
-      if (currentModules.some((currentModule) => currentModule.code === moduleCode)) {
-        return currentModules;
+      if (token && plannedModuleId) {
+        void deletePlannedModule(token, plannedModuleId)
+          .then(() => unregisterPlannedModule(moduleCode))
+          .catch(() => undefined);
+        return;
       }
 
-      return [...currentModules, targetModule];
-    });
+      if (token && pendingCreate) {
+        void pendingCreate
+          .then((plannedModule) => deletePlannedModule(token, plannedModule.id))
+          .then(() => unregisterPlannedModule(moduleCode))
+          .catch(() => undefined);
+      }
+    },
+    [unregisterPlannedModule],
+  );
 
-    void persistModulePlacement(targetModule, 'SELECTED', null).catch(() => undefined);
-  }, [findModuleByCode, persistModulePlacement, removeModuleFromBuckets]);
+  const moveModuleToSelected = useCallback(
+    (moduleCode: string, fallbackModule?: DashboardModule) => {
+      const targetModule = findModuleByCode(moduleCode) ?? fallbackModule;
 
-  const moveModuleToExempted = useCallback((moduleCode: string, fallbackModule?: DashboardModule) => {
-    const targetModule = findModuleByCode(moduleCode) ?? fallbackModule;
-
-    if (!targetModule) {
-      return;
-    }
-
-    removeModuleFromBuckets(moduleCode);
-
-    setExemptedModules((currentModules) => {
-      if (currentModules.some((currentModule) => currentModule.code === moduleCode)) {
-        return currentModules;
+      if (!targetModule) {
+        return;
       }
 
-      return [...currentModules, targetModule];
-    });
+      removeModuleFromBuckets(moduleCode);
 
-    void persistModulePlacement(targetModule, 'EXEMPTED', null).catch(() => undefined);
-  }, [findModuleByCode, persistModulePlacement, removeModuleFromBuckets]);
-
-  const moveModuleToSemester = useCallback((semesterKey: SemesterKey, moduleCode: string, fallbackModule?: DashboardModule) => {
-    const targetModule = findModuleByCode(moduleCode) ?? fallbackModule;
-
-    if (!targetModule) {
-      return;
-    }
-
-    removeModuleFromBuckets(moduleCode);
-
-    setSemesterModules((currentSemesters) => {
-      const nextSemesters = { ...currentSemesters };
-
-      nextSemesters[semesterKey] = [...nextSemesters[semesterKey], targetModule];
-
-      return nextSemesters;
-    });
-
-    void ensureSemester(semesterKey)
-      .then((semester) => {
-        if (semester) {
-          return persistModulePlacement(targetModule, 'PLANNED', semester.id);
+      setSelectedModules((currentModules) => {
+        if (
+          currentModules.some(
+            (currentModule) => currentModule.code === moduleCode,
+          )
+        ) {
+          return currentModules;
         }
 
-        return undefined;
-      })
-      .catch(() => undefined);
-  }, [ensureSemester, findModuleByCode, persistModulePlacement, removeModuleFromBuckets]);
+        return [...currentModules, targetModule];
+      });
+
+      void persistModulePlacement(targetModule, 'SELECTED', null).catch(
+        () => undefined,
+      );
+    },
+    [findModuleByCode, persistModulePlacement, removeModuleFromBuckets],
+  );
+
+  const moveModuleToExempted = useCallback(
+    (moduleCode: string, fallbackModule?: DashboardModule) => {
+      const targetModule = findModuleByCode(moduleCode) ?? fallbackModule;
+
+      if (!targetModule) {
+        return;
+      }
+
+      removeModuleFromBuckets(moduleCode);
+
+      setExemptedModules((currentModules) => {
+        if (
+          currentModules.some(
+            (currentModule) => currentModule.code === moduleCode,
+          )
+        ) {
+          return currentModules;
+        }
+
+        return [...currentModules, targetModule];
+      });
+
+      void persistModulePlacement(targetModule, 'EXEMPTED', null).catch(
+        () => undefined,
+      );
+    },
+    [findModuleByCode, persistModulePlacement, removeModuleFromBuckets],
+  );
+
+  const moveModuleToSemester = useCallback(
+    (
+      semesterKey: SemesterKey,
+      moduleCode: string,
+      fallbackModule?: DashboardModule,
+    ) => {
+      const targetModule = findModuleByCode(moduleCode) ?? fallbackModule;
+
+      if (!targetModule) {
+        return;
+      }
+
+      removeModuleFromBuckets(moduleCode);
+
+      setSemesterModules((currentSemesters) => {
+        const nextSemesters = { ...currentSemesters };
+
+        nextSemesters[semesterKey] = [
+          ...nextSemesters[semesterKey],
+          targetModule,
+        ];
+
+        return nextSemesters;
+      });
+
+      void ensureSemester(semesterKey)
+        .then((semester) => {
+          if (semester) {
+            return persistModulePlacement(targetModule, 'PLANNED', semester.id);
+          }
+
+          return undefined;
+        })
+        .catch(() => undefined);
+    },
+    [
+      ensureSemester,
+      findModuleByCode,
+      persistModulePlacement,
+      removeModuleFromBuckets,
+    ],
+  );
 
   const toggleSemesterCompletion = useCallback((semesterKey: SemesterKey) => {
     setCompletedSemesterKeys((currentCompletedSemesterKeys) => ({
@@ -534,31 +697,37 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
     }));
   }, []);
 
-  const updateModuleActualGrade = useCallback((moduleCode: string, actualGrade: DashboardGrade | null) => {
-    const updateModule = (module: DashboardModule) => (
-      module.code === moduleCode ? { ...module, actualGrade } : module
-    );
+  const updateModuleActualGrade = useCallback(
+    (moduleCode: string, actualGrade: DashboardGrade | null) => {
+      const updateModule = (module: DashboardModule) =>
+        module.code === moduleCode ? { ...module, actualGrade } : module;
 
-    setSelectedModules((currentModules) => currentModules.map(updateModule));
-    setExemptedModules((currentModules) => currentModules.map(updateModule));
-    setSemesterModules((currentSemesters) => {
-      const nextSemesters = { ...currentSemesters };
+      setSelectedModules((currentModules) => currentModules.map(updateModule));
+      setExemptedModules((currentModules) => currentModules.map(updateModule));
+      setSemesterModules((currentSemesters) => {
+        const nextSemesters = { ...currentSemesters };
 
-      Object.keys(nextSemesters).forEach((currentSemesterKey) => {
-        const typedSemesterKey = currentSemesterKey as SemesterKey;
-        nextSemesters[typedSemesterKey] = nextSemesters[typedSemesterKey].map(updateModule);
+        Object.keys(nextSemesters).forEach((currentSemesterKey) => {
+          const typedSemesterKey = currentSemesterKey as SemesterKey;
+          nextSemesters[typedSemesterKey] =
+            nextSemesters[typedSemesterKey].map(updateModule);
+        });
+
+        return nextSemesters;
       });
 
-      return nextSemesters;
-    });
-
-    void persistModuleActualGrade(moduleCode, actualGrade).catch(() => undefined);
-  }, [persistModuleActualGrade]);
+      void persistModuleActualGrade(moduleCode, actualGrade).catch(
+        () => undefined,
+      );
+    },
+    [persistModuleActualGrade],
+  );
 
   const value = useMemo(
     () => ({
       completedSemesterKeys,
       exemptedModules,
+      matriculationYear,
       semesterModules,
       selectedModules,
       addSelectedModule,
@@ -580,6 +749,7 @@ export function DashboardModuleSelectionProvider({ children }: DashboardModuleSe
       moveModuleToExempted,
       moveModuleToSelected,
       moveModuleToSemester,
+      matriculationYear,
       removeSelectedModule,
       selectedModules,
       semesterModules,
@@ -599,7 +769,9 @@ export function useDashboardModuleSelection() {
   const context = useContext(DashboardModuleSelectionContext);
 
   if (!context) {
-    throw new Error('useDashboardModuleSelection must be used within DashboardModuleSelectionProvider');
+    throw new Error(
+      'useDashboardModuleSelection must be used within DashboardModuleSelectionProvider',
+    );
   }
 
   return context;

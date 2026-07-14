@@ -17,9 +17,7 @@ describe('Application (e2e)', () => {
   });
 
   it('rejects unauthenticated access to /auth/me', () => {
-    return request(app.getHttpServer())
-      .get('/auth/me')
-      .expect(401);
+    return request(app.getHttpServer()).get('/auth/me').expect(401);
   });
 
   afterEach(async () => {

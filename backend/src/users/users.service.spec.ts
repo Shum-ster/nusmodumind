@@ -8,6 +8,7 @@ describe('UsersService', () => {
     user: {
       findUnique: jest.Mock;
       create: jest.Mock;
+      update: jest.Mock;
     };
   };
 
@@ -22,14 +23,12 @@ describe('UsersService', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue(user),
         create: jest.fn().mockResolvedValue(user),
+        update: jest.fn().mockResolvedValue(user),
       },
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UsersService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [UsersService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
@@ -56,5 +55,22 @@ describe('UsersService', () => {
 
     await expect(service.createUser(data)).resolves.toEqual(user);
     expect(prisma.user.create).toHaveBeenCalledWith({ data });
+  });
+
+  it('finds a user by id', async () => {
+    await expect(service.findUserById('user-id')).resolves.toEqual(user);
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'user-id' },
+    });
+  });
+
+  it('updates a user', async () => {
+    const data = { username: 'Jason' };
+
+    await expect(service.updateUser('user-id', data)).resolves.toEqual(user);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-id' },
+      data,
+    });
   });
 });

@@ -1,8 +1,9 @@
-import { apiRequest } from "@/shared/api";
+import { apiRequest } from '@/shared/api';
 
 export type NusModuleListItem = {
   moduleCode: string;
   title: string;
+  description?: string | null;
   faculty: string;
   department: string | null;
   moduleCredit: string;
@@ -42,6 +43,9 @@ export type ModuleReview = {
   rating: number;
   content: string;
   createdAt: string;
+  user?: {
+    username: string | null;
+  };
 };
 
 type SearchNusModulesQuery = {
@@ -60,11 +64,13 @@ type CreateModuleReviewBody = {
 };
 
 export function searchNusModules(query: SearchNusModulesQuery = {}) {
-  return apiRequest<NusModuleSearchResponse>("/nusmodule", { query });
+  return apiRequest<NusModuleSearchResponse>('/nusmodule', { query });
 }
 
 export function getNusModule(moduleCode: string) {
-  return apiRequest<NusModuleDetail>(`/nusmodule/${encodeURIComponent(moduleCode)}`);
+  return apiRequest<NusModuleDetail>(
+    `/nusmodule/${encodeURIComponent(moduleCode)}`,
+  );
 }
 
 export function getModuleReviews(moduleCode: string) {
@@ -73,9 +79,12 @@ export function getModuleReviews(moduleCode: string) {
   );
 }
 
-export function createModuleReview(token: string, body: CreateModuleReviewBody) {
-  return apiRequest<ModuleReview>("/module-reviews", {
-    method: "POST",
+export function createModuleReview(
+  token: string,
+  body: CreateModuleReviewBody,
+) {
+  return apiRequest<ModuleReview>('/module-reviews', {
+    method: 'POST',
     token,
     body,
   });

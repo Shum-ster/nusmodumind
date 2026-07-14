@@ -70,9 +70,9 @@ describe('PlannedModulesController', () => {
   it('updates a planned module for the current user', async () => {
     const dto: UpdatePlannedModuleDto = { actualGrade: 'A-' };
 
-    await expect(controller.update(user, plannedModule.id, dto)).resolves.toEqual(
-      plannedModule,
-    );
+    await expect(
+      controller.update(user, plannedModule.id, dto),
+    ).resolves.toEqual(plannedModule);
     expect(service.update).toHaveBeenCalledWith(user.id, plannedModule.id, dto);
   });
 

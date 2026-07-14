@@ -8,7 +8,9 @@ describe('AuthService', () => {
   let service: AuthService;
   let usersService: {
     findUserByEmail: jest.Mock;
+    findUserById: jest.Mock;
     createUser: jest.Mock;
+    updateUser: jest.Mock;
   };
   let jwtService: { sign: jest.Mock };
 
@@ -16,12 +18,18 @@ describe('AuthService', () => {
     id: 'user-id',
     email: 'test@example.com',
     passwordHash: 'hashed-password',
+    username: null,
+    faculty: null,
+    degree: null,
+    graduationYear: null,
   };
 
   beforeEach(() => {
     usersService = {
       findUserByEmail: jest.fn(),
+      findUserById: jest.fn(),
       createUser: jest.fn(),
+      updateUser: jest.fn(),
     };
     jwtService = {
       sign: jest.fn().mockReturnValue('signed-token'),
@@ -118,5 +126,50 @@ describe('AuthService', () => {
       email: 'test@example.com',
       sub: 'user-id',
     });
+  });
+
+  it('returns the current user profile without the password hash', async () => {
+    usersService.findUserById.mockResolvedValue({
+      ...userWithPassword,
+      username: 'Jason',
+      graduationYear: 2030,
+    });
+
+    await expect(service.getProfile('user-id')).resolves.toEqual({
+      id: 'user-id',
+      email: 'test@example.com',
+      username: 'Jason',
+      faculty: null,
+      degree: null,
+      graduationYear: 2030,
+    });
+  });
+
+  it('requires the current password before changing password', async () => {
+    const hashedPassword = await bcrypt.hash('password123', 1);
+
+    usersService.findUserById.mockResolvedValue({
+      ...userWithPassword,
+      passwordHash: hashedPassword,
+    });
+    usersService.updateUser.mockResolvedValue({
+      ...userWithPassword,
+      passwordHash: 'next-hash',
+    });
+
+    await service.updateProfile('user-id', {
+      currentPassword: 'password123',
+      newPassword: 'newpassword123',
+    });
+
+    const updateUserCalls = usersService.updateUser.mock.calls as [
+      [string, { passwordHash: string }],
+    ];
+    const updatePayload = updateUserCalls[0][1];
+
+    expect(updatePayload.passwordHash).not.toBe('newpassword123');
+    await expect(
+      bcrypt.compare('newpassword123', updatePayload.passwordHash),
+    ).resolves.toBe(true);
   });
 });

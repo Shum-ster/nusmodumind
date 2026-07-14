@@ -26,6 +26,7 @@ describe('NusmoduleService', () => {
   const listItem = {
     moduleCode: nusModule.moduleCode,
     title: nusModule.title,
+    description: nusModule.description,
     moduleCredit: nusModule.moduleCredit,
     department: nusModule.department,
     faculty: nusModule.faculty,
@@ -69,12 +70,14 @@ describe('NusmoduleService', () => {
       select: {
         moduleCode: true,
         title: true,
+        description: true,
         faculty: true,
         department: true,
         moduleCredit: true,
         prerequisite: true,
         semesterData: true,
         workload: true,
+        attributes: true,
         gradingBasisDescription: true,
       },
     });

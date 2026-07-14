@@ -9,5 +9,4 @@ export class CreateSemesterDto {
   @Min(1)
   @Max(4) // Sem 1, Sem 2, Special Term 1, Special Term 2
   semesterNumber: number;
-
 }

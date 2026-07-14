@@ -1,14 +1,31 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateModuleReviewDto } from './dto/create-module_review.dto';
 import { UpdateModuleReviewDto } from './dto/update-module_review.dto';
-import { ModuleReview } from '@prisma/client';
+import { ModuleReview, Prisma } from '@prisma/client';
+
+type ModuleReviewWithAuthor = Prisma.ModuleReviewGetPayload<{
+  include: {
+    user: {
+      select: {
+        username: true;
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class ModuleReviewsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, createModuleReviewDto: CreateModuleReviewDto): Promise<ModuleReview> {
+  async create(
+    userId: string,
+    createModuleReviewDto: CreateModuleReviewDto,
+  ): Promise<ModuleReview> {
     return this.prisma.moduleReview.create({
       data: {
         ...createModuleReviewDto,
@@ -18,10 +35,17 @@ export class ModuleReviewsService {
     });
   }
 
-  async findByModule(moduleCode: string): Promise<ModuleReview[]> {
+  async findByModule(moduleCode: string): Promise<ModuleReviewWithAuthor[]> {
     return this.prisma.moduleReview.findMany({
       where: { moduleCode: moduleCode.toUpperCase() },
       orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
     });
   }
 
@@ -35,7 +59,11 @@ export class ModuleReviewsService {
     return review;
   }
 
-  async update(userId: string, id: string, updateModuleReviewDto: UpdateModuleReviewDto): Promise<ModuleReview> {
+  async update(
+    userId: string,
+    id: string,
+    updateModuleReviewDto: UpdateModuleReviewDto,
+  ): Promise<ModuleReview> {
     const review = await this.findOne(id);
 
     if (review.userId !== userId) {

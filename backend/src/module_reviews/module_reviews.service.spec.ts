@@ -72,6 +72,13 @@ describe('ModuleReviewsService', () => {
     expect(prisma.moduleReview.findMany).toHaveBeenCalledWith({
       where: { moduleCode: 'CS1010S' },
       orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
     });
   });
 

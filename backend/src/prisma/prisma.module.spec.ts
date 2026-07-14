@@ -11,6 +11,6 @@ describe('PrismaModule', () => {
     const prismaService = module.get(PrismaService);
 
     expect(prismaService).toBeDefined();
-    expect(prismaService.$connect).toBeDefined();
+    expect(prismaService).toHaveProperty('$connect');
   });
 });
