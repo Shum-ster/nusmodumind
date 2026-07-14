@@ -8,14 +8,26 @@ describe('AuthController', () => {
   let authService: {
     register: jest.Mock;
     login: jest.Mock;
+    getProfile: jest.Mock;
+    updateProfile: jest.Mock;
   };
 
-  const user = { id: 1, email: 'test@example.com' };
+  const user = { id: 'user-id', email: 'test@example.com' };
+  const profile = {
+    id: 'user-id',
+    email: 'test@example.com',
+    username: 'Jason',
+    faculty: null,
+    degree: null,
+    graduationYear: 2030,
+  };
 
   beforeEach(async () => {
     authService = {
       register: jest.fn().mockResolvedValue(user),
       login: jest.fn().mockResolvedValue({ access_token: 'signed-token' }),
+      getProfile: jest.fn().mockResolvedValue(profile),
+      updateProfile: jest.fn().mockResolvedValue(profile),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -47,7 +59,23 @@ describe('AuthController', () => {
     expect(authService.login).toHaveBeenCalledWith(user);
   });
 
-  it('returns the current user for me', () => {
-    expect(controller.getMe(user)).toEqual(user);
+  it('returns the current user profile for me', async () => {
+    await expect(controller.getMe(user)).resolves.toEqual(profile);
+    expect(authService.getProfile).toHaveBeenCalledWith('user-id');
+  });
+
+  it('updates the current user profile', async () => {
+    const updateProfileDto = {
+      username: 'Jason',
+      graduationYear: 2030,
+    };
+
+    await expect(controller.updateMe(user, updateProfileDto)).resolves.toEqual(
+      profile,
+    );
+    expect(authService.updateProfile).toHaveBeenCalledWith(
+      'user-id',
+      updateProfileDto,
+    );
   });
 });

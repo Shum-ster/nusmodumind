@@ -76,6 +76,7 @@ export class NusmoduleService {
       select: {
         moduleCode: true,
         title: true,
+        description: true,
         faculty: true,
         department: true,
         moduleCredit: true,

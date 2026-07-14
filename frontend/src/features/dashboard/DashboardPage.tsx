@@ -7,20 +7,21 @@ import {
   ExemptedModules,
   SelectedModules,
 } from './components';
-import type { SemesterKey, YearNumber } from './DashboardModuleSelectionContext';
+import type {
+  SemesterKey,
+  YearNumber,
+} from './DashboardModuleSelectionContext';
 import { useDashboardModuleSelection } from './DashboardModuleSelectionContext';
 import { calculateGpa, formatGpa } from './dashboard-grades';
 
-const mockUserInfo = {
-  matriculationYear: 2026,
-};
-
 export function DashboardPage() {
-  const { completedSemesterKeys, semesterModules } = useDashboardModuleSelection();
+  const { completedSemesterKeys, matriculationYear, semesterModules } =
+    useDashboardModuleSelection();
   const years: YearNumber[] = [1, 2, 3, 4];
-  const completedModules = Object.entries(semesterModules).flatMap(([semesterKey, modules]) => (
-    completedSemesterKeys[semesterKey as SemesterKey] ? modules : []
-  ));
+  const completedModules = Object.entries(semesterModules).flatMap(
+    ([semesterKey, modules]) =>
+      completedSemesterKeys[semesterKey as SemesterKey] ? modules : [],
+  );
   const cumulativeGpa = calculateGpa(completedModules);
 
   return (
@@ -34,7 +35,9 @@ export function DashboardPage() {
                 CAP {formatGpa(cumulativeGpa)}
               </div>
             </div>
-            <p className="mt-2 text-sm font-medium text-gray-500">Build your module plan across semesters.</p>
+            <p className="mt-2 text-sm font-medium text-gray-500">
+              Build your module plan across semesters.
+            </p>
           </div>
 
           <div className="flex flex-wrap items-start justify-end gap-4">
@@ -48,7 +51,7 @@ export function DashboardPage() {
           <DashboardYearLayout
             key={yearNumber}
             yearNumber={yearNumber}
-            userInfo={mockUserInfo}
+            userInfo={{ matriculationYear }}
             semesterModules={semesterModules}
           />
         ))}

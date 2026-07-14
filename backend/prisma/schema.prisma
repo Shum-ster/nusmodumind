@@ -18,6 +18,7 @@ model User {
   username      String?
   faculty       String?
   degree        String?
+  graduationYear Int?          @map("graduation_year")
 
   semesters     Semester[]
   plannedModules PlannedModule[]

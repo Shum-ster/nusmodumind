@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSemesterDto } from './dto/create-semester.dto';
 import { UpdateSemesterDto } from './dto/update-semester.dto';
@@ -8,7 +12,10 @@ import { Semester } from '@prisma/client';
 export class SemestersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, createSemesterDto: CreateSemesterDto): Promise<Semester> {
+  async create(
+    userId: string,
+    createSemesterDto: CreateSemesterDto,
+  ): Promise<Semester> {
     return this.prisma.semester.create({
       data: {
         ...createSemesterDto,
@@ -20,10 +27,7 @@ export class SemestersService {
   async findUserPlan(userId: string): Promise<Semester[]> {
     return this.prisma.semester.findMany({
       where: { userId },
-      orderBy: [
-        { acadYear: 'asc' },
-        { semesterNumber: 'asc' },
-      ],
+      orderBy: [{ acadYear: 'asc' }, { semesterNumber: 'asc' }],
       include: {
         plannedModules: {
           include: {
@@ -38,10 +42,7 @@ export class SemestersService {
     const [semesters, plannedModules] = await this.prisma.$transaction([
       this.prisma.semester.findMany({
         where: { userId },
-        orderBy: [
-          { acadYear: 'asc' },
-          { semesterNumber: 'asc' },
-        ],
+        orderBy: [{ acadYear: 'asc' }, { semesterNumber: 'asc' }],
       }),
       this.prisma.plannedModule.findMany({
         where: { userId },
@@ -73,7 +74,11 @@ export class SemestersService {
     return semester;
   }
 
-  async update(id: string, userId: string, updateSemesterDto: UpdateSemesterDto): Promise<Semester> {
+  async update(
+    id: string,
+    userId: string,
+    updateSemesterDto: UpdateSemesterDto,
+  ): Promise<Semester> {
     await this.findOne(id, userId); // Ensure exists and belongs to the user
     return this.prisma.semester.update({
       where: { id },

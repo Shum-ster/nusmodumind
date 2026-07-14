@@ -86,7 +86,7 @@ describe('PlannedModulesService', () => {
         moduleCode: 'CS1010S',
         status: PlannedModuleStatus.PLANNED,
         expectedGrade: 'A',
-      }),
+      }) as unknown,
       include: { module: true, semester: true },
     });
   });
@@ -113,7 +113,7 @@ describe('PlannedModulesService', () => {
         userId,
         moduleCode: 'CS1010S',
         status: PlannedModuleStatus.SELECTED,
-      }),
+      }) as unknown,
       include: { module: true, semester: true },
     });
   });
@@ -139,7 +139,7 @@ describe('PlannedModulesService', () => {
         userId,
         moduleCode: 'CS1010S',
         status: PlannedModuleStatus.EXEMPTED,
-      }),
+      }) as unknown,
       include: { module: true, semester: true },
     });
   });
@@ -180,9 +180,9 @@ describe('PlannedModulesService', () => {
   it('throws when a planned module does not exist', async () => {
     prisma.plannedModule.findUnique.mockResolvedValue(null);
 
-    await expect(service.findOne(plannedModule.id, userId)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.findOne(plannedModule.id, userId),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('throws when the planned module belongs to another user', async () => {
@@ -206,7 +206,7 @@ describe('PlannedModulesService', () => {
         moduleCode: 'MA1521',
         status: PlannedModuleStatus.PLANNED,
         actualGrade: 'A-',
-      }),
+      }) as unknown,
       include: { module: true, semester: true },
     });
   });
@@ -222,7 +222,7 @@ describe('PlannedModulesService', () => {
       data: expect.objectContaining({
         semesterId: null,
         status: PlannedModuleStatus.SELECTED,
-      }),
+      }) as unknown,
       include: { module: true, semester: true },
     });
   });

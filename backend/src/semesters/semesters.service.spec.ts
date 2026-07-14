@@ -94,10 +94,12 @@ describe('SemestersService', () => {
   });
 
   it('finds the current user plan with semesters and planned modules', async () => {
-    await expect(service.findCurrentUserPlan(semester.userId)).resolves.toEqual({
-      semesters: [semester],
-      plannedModules: [plannedModule],
-    });
+    await expect(service.findCurrentUserPlan(semester.userId)).resolves.toEqual(
+      {
+        semesters: [semester],
+        plannedModules: [plannedModule],
+      },
+    );
     expect(prisma.semester.findMany).toHaveBeenCalledWith({
       where: { userId: semester.userId },
       orderBy: [{ acadYear: 'asc' }, { semesterNumber: 'asc' }],
@@ -113,9 +115,9 @@ describe('SemestersService', () => {
   });
 
   it('finds one semester with planned modules for the owner', async () => {
-    await expect(service.findOne(semester.id, semester.userId)).resolves.toEqual(
-      semester,
-    );
+    await expect(
+      service.findOne(semester.id, semester.userId),
+    ).resolves.toEqual(semester);
     expect(prisma.semester.findUnique).toHaveBeenCalledWith({
       where: { id: semester.id },
       include: { plannedModules: true },
@@ -125,9 +127,9 @@ describe('SemestersService', () => {
   it('throws when a semester does not exist', async () => {
     prisma.semester.findUnique.mockResolvedValue(null);
 
-    await expect(service.findOne(semester.id, semester.userId)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.findOne(semester.id, semester.userId),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('throws when the semester belongs to another user', async () => {
