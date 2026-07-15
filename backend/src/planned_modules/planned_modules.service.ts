@@ -5,16 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  CreatePlannedModuleDto,
-  PlannedModuleStatusDto,
-} from './dto/create-planned_module.dto';
+import { CreatePlannedModuleDto } from './dto/create-planned_module.dto';
 import { UpdatePlannedModuleDto } from './dto/update-planned_module.dto';
 import { PlannedModule, PlannedModuleStatus, Prisma } from '@prisma/client';
-
-type PlannedModuleDataInput = Omit<CreatePlannedModuleDto, 'status'> & {
-  status?: PlannedModuleStatusDto | PlannedModuleStatus;
-};
+import type { PlannedModuleDataInput } from '../shared/types';
 
 @Injectable()
 export class PlannedModulesService {

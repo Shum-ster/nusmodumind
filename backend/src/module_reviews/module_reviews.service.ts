@@ -6,17 +6,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateModuleReviewDto } from './dto/create-module_review.dto';
 import { UpdateModuleReviewDto } from './dto/update-module_review.dto';
-import { ModuleReview, Prisma } from '@prisma/client';
-
-type ModuleReviewWithAuthor = Prisma.ModuleReviewGetPayload<{
-  include: {
-    user: {
-      select: {
-        username: true;
-      };
-    };
-  };
-}>;
+import { ModuleReview } from '@prisma/client';
+import {
+  moduleReviewAuthorSelect,
+  type ModuleReviewWithAuthor,
+} from '../shared/types';
 
 @Injectable()
 export class ModuleReviewsService {
@@ -40,11 +34,7 @@ export class ModuleReviewsService {
       where: { moduleCode: moduleCode.toUpperCase() },
       orderBy: { createdAt: 'desc' },
       include: {
-        user: {
-          select: {
-            username: true,
-          },
-        },
+        user: { select: moduleReviewAuthorSelect },
       },
     });
   }

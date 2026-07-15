@@ -1,55 +1,19 @@
-import type { CurrentUserPlan } from "@/features/planner";
+import type {
+  CurrentUserPlan,
+  CurrentUserTimetable,
+  NusModsLesson,
+  NusModsSemesterData,
+  SelectedLessonsByType,
+  TimetableLesson,
+  TimetableSemester,
+} from "@/shared/types";
 
-export type CurrentUserTimetable = {
-  semester: TimetableSemester;
-  modules: TimetableModule[];
-};
-
-export type TimetableSemester = {
-  id: string;
-  acadYear: string;
-  semesterNumber: number;
-  label: string;
-};
-
-export type TimetableModule = {
-  plannedModuleId: string;
-  semesterId: string;
-  moduleCode: string;
-  selectedLessons: TimetableLesson[];
-  availableLessons: TimetableLesson[];
-  examDate: string | null;
-};
-
-export type TimetableLesson = {
-  id: string;
-  moduleCode: string;
-  lessonType: string;
-  classNo: string;
-  day: string;
-  startTime: string;
-  endTime: string;
-  venue: string;
-  weeks: string;
-};
-
-type SemesterDataEntry = {
-  examDate?: unknown;
-  semester?: unknown;
-  timetable?: unknown;
-};
-
-type NusModsLesson = {
-  classNo?: unknown;
-  day?: unknown;
-  endTime?: unknown;
-  lessonType?: unknown;
-  startTime?: unknown;
-  venue?: unknown;
-  weeks?: unknown;
-};
-
-type SelectedLessonsByType = Record<string, string>;
+export type {
+  CurrentUserTimetable,
+  TimetableLesson,
+  TimetableModule,
+  TimetableSemester,
+} from "@/shared/types";
 
 export function buildCurrentUserTimetable(
   plan: CurrentUserPlan,
@@ -107,14 +71,14 @@ export function buildCurrentUserTimetable(
 function getMatchingSemesterData(
   semesterData: unknown,
   semesterNumber: number,
-): SemesterDataEntry | null {
+): NusModsSemesterData | null {
   if (!Array.isArray(semesterData)) {
     return null;
   }
 
   return (
     semesterData.find(
-      (currentSemester): currentSemester is SemesterDataEntry =>
+      (currentSemester): currentSemester is NusModsSemesterData =>
         isRecord(currentSemester) &&
         Number(currentSemester.semester) === semesterNumber,
     ) ?? null
@@ -123,7 +87,7 @@ function getMatchingSemesterData(
 
 function getAvailableLessons(
   moduleCode: string,
-  semesterData: SemesterDataEntry | null,
+  semesterData: NusModsSemesterData | null,
 ) {
   if (!Array.isArray(semesterData?.timetable)) {
     return [];
@@ -213,7 +177,7 @@ function normalizeSelectedLessons(selectedLessons: unknown): SelectedLessonsByTy
   );
 }
 
-function getExamDate(semesterData: SemesterDataEntry | null) {
+function getExamDate(semesterData: NusModsSemesterData | null) {
   return typeof semesterData?.examDate === "string"
     ? semesterData.examDate
     : null;

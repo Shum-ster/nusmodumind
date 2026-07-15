@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../auth/auth.types';
+import type { AuthenticatedUser } from '../shared/types';
 import { PublicPlansService } from './public_plans.service';
 import { CreatePublicPlanDto } from './dto/create-public_plan.dto';
 

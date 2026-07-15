@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../auth/auth.types';
+import type { AuthenticatedUser } from '../shared/types';
 import { ModuleReviewsService } from './module_reviews.service';
 import { CreateModuleReviewDto } from './dto/create-module_review.dto';
 import { UpdateModuleReviewDto } from './dto/update-module_review.dto';

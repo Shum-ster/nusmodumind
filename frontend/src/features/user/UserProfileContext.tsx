@@ -12,19 +12,16 @@ import type { ReactNode } from 'react';
 import {
   getCurrentUser,
   updateCurrentUserProfile,
-  type CurrentUserProfile,
-  type UpdateCurrentUserProfileBody,
 } from '@/features/auth/lib/auth-api';
 import { getToken } from '@/features/auth/lib/token-storage';
+import type { UpdateUserProfileBody, UserProfile } from '@/shared/types';
 
 type UserProfileContextValue = {
   isLoadingProfile: boolean;
-  profile: CurrentUserProfile | null;
+  profile: UserProfile | null;
   profileError: string | null;
-  refreshProfile: () => Promise<CurrentUserProfile | null>;
-  updateProfile: (
-    body: UpdateCurrentUserProfileBody,
-  ) => Promise<CurrentUserProfile>;
+  refreshProfile: () => Promise<UserProfile | null>;
+  updateProfile: (body: UpdateUserProfileBody) => Promise<UserProfile>;
 };
 
 type UserProfileProviderProps = {
@@ -34,7 +31,7 @@ type UserProfileProviderProps = {
 const UserProfileContext = createContext<UserProfileContextValue | null>(null);
 
 export function UserProfileProvider({ children }: UserProfileProviderProps) {
-  const [profile, setProfile] = useState<CurrentUserProfile | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -67,7 +64,7 @@ export function UserProfileProvider({ children }: UserProfileProviderProps) {
   }, []);
 
   const updateProfile = useCallback(
-    async (body: UpdateCurrentUserProfileBody) => {
+    async (body: UpdateUserProfileBody) => {
       const token = getToken();
 
       if (!token) {

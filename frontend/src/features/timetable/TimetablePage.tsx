@@ -6,13 +6,15 @@ import { getToken } from '@/features/auth/lib/token-storage';
 import {
   getCurrentUserPlan,
   updatePlannedModule,
-  type SemesterRecord,
 } from '@/features/planner';
+import type {
+  CurrentUserTimetable,
+  SemesterRecord,
+  TimetableLesson,
+  TimetableModule,
+} from '@/shared/types';
 import {
   buildCurrentUserTimetable,
-  type CurrentUserTimetable,
-  type TimetableLesson,
-  type TimetableModule,
 } from './adapters/current-user-timetable-adapter';
 import { formatSingaporeTimetableTime } from './timetable-time';
 import {

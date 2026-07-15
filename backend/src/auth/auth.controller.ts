@@ -4,7 +4,7 @@ import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from './decorators/current-user.decorator';
-import type { AuthenticatedUser } from './auth.types';
+import type { AuthenticatedUser } from '../shared/types';
 
 @Controller('auth')
 export class AuthController {

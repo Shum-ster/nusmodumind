@@ -1,10 +1,13 @@
-import type { DashboardModule } from './types';
+import {
+  dashboardGradeValues,
+  suGradeValue,
+  type DashboardGrade,
+  type DashboardLetterGrade,
+  type DashboardModule,
+} from '@/shared/types';
 
-export const dashboardGradeValues = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'D+', 'D', 'F'] as const;
-export const suGradeValue = 'S/U';
-
-export type DashboardLetterGrade = (typeof dashboardGradeValues)[number];
-export type DashboardGrade = DashboardLetterGrade | typeof suGradeValue;
+export { dashboardGradeValues, suGradeValue };
+export type { DashboardGrade, DashboardLetterGrade };
 
 const gradePointByGrade: Record<DashboardLetterGrade, number> = {
   'A+': 5,

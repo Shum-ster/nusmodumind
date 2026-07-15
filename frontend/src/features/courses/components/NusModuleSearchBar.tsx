@@ -3,7 +3,8 @@
 import { Search } from 'lucide-react';
 import type { DragEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { searchNusModules, type NusModuleListItem } from '../courses-api';
+import { searchNusModules } from '../courses-api';
+import type { NusModuleListItem } from '@/shared/types';
 
 const maxSearchResults = 8;
 

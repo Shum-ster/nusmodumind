@@ -7,21 +7,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicPlansService } from '../public_plans/public_plans.service';
 import { CreatePlanReviewDto } from './dto/create-plan_review.dto';
-import { PlanReview, Prisma } from '@prisma/client';
-
-const planReviewUserSelect = {
-  username: true,
-  faculty: true,
-  degree: true,
-} satisfies Prisma.UserSelect;
-
-type PlanReviewWithUser = Prisma.PlanReviewGetPayload<{
-  include: {
-    user: {
-      select: typeof planReviewUserSelect;
-    };
-  };
-}>;
+import { PlanReview } from '@prisma/client';
+import { planAuthorSelect, type PlanReviewWithUser } from '../shared/types';
 
 @Injectable()
 export class PlanReviewsService {
@@ -55,7 +42,7 @@ export class PlanReviewsService {
       where: { publicPlanId },
       orderBy: { createdAt: 'desc' },
       include: {
-        user: { select: planReviewUserSelect },
+        user: { select: planAuthorSelect },
       },
     });
   }
@@ -64,7 +51,7 @@ export class PlanReviewsService {
     const review = await this.prisma.planReview.findUnique({
       where: { id },
       include: {
-        user: { select: planReviewUserSelect },
+        user: { select: planAuthorSelect },
       },
     });
 
