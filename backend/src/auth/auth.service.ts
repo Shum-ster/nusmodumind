@@ -102,6 +102,31 @@ export class AuthService {
       updateData.graduationYear = updateProfileDto.graduationYear;
     }
 
+    if (updateProfileDto.matriculationYear !== undefined) {
+      updateData.matriculationYear = updateProfileDto.matriculationYear;
+    }
+
+    if (updateProfileDto.faculty !== undefined) {
+      const faculty = updateProfileDto.faculty?.trim();
+
+      updateData.faculty = faculty ? faculty : null;
+    }
+
+    if (updateProfileDto.degree !== undefined) {
+      const degree = updateProfileDto.degree?.trim();
+
+      updateData.degree = degree ? degree : null;
+    }
+
+    if (updateProfileDto.lifestylePreferences !== undefined) {
+      const lifestylePreferences =
+        updateProfileDto.lifestylePreferences?.trim();
+
+      updateData.lifestylePreferences = lifestylePreferences
+        ? lifestylePreferences
+        : null;
+    }
+
     if (isChangingPassword) {
       if (!updateProfileDto.currentPassword || !updateProfileDto.newPassword) {
         throw new BadRequestException(
@@ -144,6 +169,8 @@ export class AuthService {
     faculty: string | null;
     degree: string | null;
     graduationYear: number | null;
+    matriculationYear: number | null;
+    lifestylePreferences: string | null;
   }): UserProfile {
     return {
       id: user.id,
@@ -152,6 +179,8 @@ export class AuthService {
       faculty: user.faculty,
       degree: user.degree,
       graduationYear: user.graduationYear,
+      matriculationYear: user.matriculationYear,
+      lifestylePreferences: user.lifestylePreferences,
     };
   }
 }

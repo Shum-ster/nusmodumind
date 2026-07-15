@@ -19,4 +19,6 @@ export type UserProfile = {
   faculty: string | null;
   degree: string | null;
   graduationYear: number | null;
+  matriculationYear: number | null;
+  lifestylePreferences: string | null;
 };

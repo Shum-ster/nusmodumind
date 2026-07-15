@@ -6,6 +6,8 @@ export type PopularChoiceDegree = {
 export type PopularChoiceFaculty = {
   id: string;
   title: string;
+  previousIds?: string[];
+  previousTitles?: string[];
   degrees: PopularChoiceDegree[];
 };
 
@@ -73,7 +75,8 @@ const coverPalettes: Array<[string, string]> = [
 export const popularChoiceFaculties: PopularChoiceFaculty[] = [
   {
     id: 'computing',
-    title: 'Computing',
+    title: 'School of Computing',
+    previousTitles: ['Computing'],
     degrees: [
       { id: 'business-analytics', title: 'Business Analytics' },
       { id: 'artificial-intelligence-systems', title: 'Artificial Intelligence Systems' },
@@ -84,14 +87,16 @@ export const popularChoiceFaculties: PopularChoiceFaculty[] = [
   },
   {
     id: 'business',
-    title: 'Business',
+    title: 'School of Business',
+    previousTitles: ['Business'],
     degrees: [
       { id: 'business-administration', title: 'Business Administration' },
     ],
   },
   {
     id: 'design-and-engineering',
-    title: 'Design and Engineering',
+    title: 'College of Design and Engineering',
+    previousTitles: ['Design and Engineering'],
     degrees: [
       { id: 'engineering', title: 'Engineering' },
       { id: 'industrial-design', title: 'Industrial Design' },
@@ -100,40 +105,51 @@ export const popularChoiceFaculties: PopularChoiceFaculty[] = [
   },
   {
     id: 'humanities-and-sciences',
-    title: 'Humanities and Sciences',
+    title: 'College of Humanities and Sciences',
+    previousIds: ['pharmacy'],
+    previousTitles: [
+      'Humanities and Sciences',
+      'Pharmacy',
+      'Faculty of Science - Pharmacy and Pharmaceutical Sciences',
+    ],
     degrees: [
       { id: 'data-science-and-economics', title: 'Data Science and Economics' },
       { id: 'environmental-studies', title: 'Environmental Studies' },
       { id: 'food-science-and-technology', title: 'Food Science and Technology' },
       { id: 'humanities-and-sciences', title: 'Humanities and Sciences' },
+      { id: 'pharmaceutical-science', title: 'Pharmaceutical Science' },
+      { id: 'pharmacy', title: 'Pharmacy' },
+      { id: 'ppe', title: 'Philosophy, Politics and Economics' },
     ],
   },
   {
     id: 'medicine',
-    title: 'Medicine',
+    title: 'Yong Loo Lin School of Medicine',
+    previousIds: ['nursing'],
+    previousTitles: [
+      'Medicine',
+      'Nursing',
+      'Yong Loo Lin School of Medicine - Nursing',
+    ],
     degrees: [
       { id: 'medicine', title: 'Medicine' },
+      { id: 'nursing', title: 'Nursing' },
     ],
   },
   {
     id: 'music',
-    title: 'Music',
+    title: 'Yong Siew Toh Conservatory of Music',
+    previousTitles: ['Music'],
     degrees: [
       { id: 'music', title: 'Music' },
     ],
   },
   {
     id: 'law',
-    title: 'Law',
+    title: 'Faculty of Law',
+    previousTitles: ['Law'],
     degrees: [
       { id: 'law', title: 'Law' },
-    ],
-  },
-  {
-    id: 'nursing',
-    title: 'Nursing',
-    degrees: [
-      { id: 'nursing', title: 'Nursing' },
     ],
   },
   {
@@ -144,17 +160,9 @@ export const popularChoiceFaculties: PopularChoiceFaculty[] = [
     ],
   },
   {
-    id: 'pharmacy',
-    title: 'Pharmacy',
-    degrees: [
-      { id: 'pharmaceutical-science', title: 'Pharmaceutical Science' },
-      { id: 'pharmacy', title: 'Pharmacy' },
-      { id: 'ppe', title: 'Philosophy, Politics and Economics' },
-    ],
-  },
-  {
     id: 'dentistry',
-    title: 'Dentistry',
+    title: 'Faculty of Dentistry',
+    previousTitles: ['Dentistry'],
     degrees: [
       { id: 'dentistry', title: 'Dentistry' },
     ],
@@ -162,7 +170,10 @@ export const popularChoiceFaculties: PopularChoiceFaculty[] = [
 ];
 
 export function getPopularChoiceFaculty(facultyId: string) {
-  return popularChoiceFaculties.find((faculty) => faculty.id === facultyId);
+  return popularChoiceFaculties.find(
+    (faculty) =>
+      faculty.id === facultyId || faculty.previousIds?.includes(facultyId),
+  );
 }
 
 export function getPopularChoiceDegree(facultyId: string, degreeId: string) {

@@ -61,7 +61,13 @@ Create `backend/.env` with:
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres?schema=public"
 JWT_SECRET="key"
+OPENAI_API_KEY="your-openai-api-key"
+OPENAI_MODEL="gpt-5.6-terra"
 ```
+
+`OPENAI_API_KEY` is used only by the backend. The optional `OPENAI_MODEL`
+setting controls the model used by AI Planner prompts and defaults to
+`gpt-5.6-terra`.
 
 Apply the Prisma migrations:
 
@@ -88,6 +94,16 @@ The backend API will run at:
 ```text
 http://localhost:3001
 ```
+
+The authenticated Phase 1 AI Planner endpoint is available at:
+
+```text
+POST /ai-planner/degree-requirements
+```
+
+For a Vercel deployment, configure `OPENAI_API_KEY` and `OPENAI_MODEL` as
+backend project environment variables. Never expose the API key through a
+`NEXT_PUBLIC_` frontend variable.
 
 ## Frontend Setup
 

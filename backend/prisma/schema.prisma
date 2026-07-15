@@ -12,13 +12,15 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
-  email         String         @unique
-  passwordHash  String         @map("password_hash")
-  username      String?
-  faculty       String?
-  degree        String?
-  graduationYear Int?          @map("graduation_year")
+  id                   String  @id @default(uuid()) @db.Uuid
+  email                String  @unique
+  passwordHash         String  @map("password_hash")
+  username             String?
+  faculty              String?
+  degree               String?
+  graduationYear       Int?    @map("graduation_year")
+  matriculationYear    Int?    @map("matriculation_year")
+  lifestylePreferences String? @map("lifestyle_preferences") @db.Text
 
   semesters     Semester[]
   plannedModules PlannedModule[]

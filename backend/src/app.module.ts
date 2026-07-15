@@ -10,6 +10,7 @@ import { PlanReviewsModule } from './plan_reviews/plan_reviews.module';
 import { PublicPlansModule } from './public_plans/public_plans.module';
 import { PlannedModulesModule } from './planned_modules/planned_modules.module';
 import { ModuleReviewsModule } from './module_reviews/module_reviews.module';
+import { AiPlannerModule } from './ai_planner/ai-planner.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ModuleReviewsModule } from './module_reviews/module_reviews.module';
     ModuleReviewsModule,
     PublicPlansModule,
     PlanReviewsModule,
+    AiPlannerModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [],

@@ -22,6 +22,8 @@ describe('AuthService', () => {
     faculty: null,
     degree: null,
     graduationYear: null,
+    matriculationYear: null,
+    lifestylePreferences: null,
   };
 
   beforeEach(() => {
@@ -142,6 +144,33 @@ describe('AuthService', () => {
       faculty: null,
       degree: null,
       graduationYear: 2030,
+      matriculationYear: null,
+      lifestylePreferences: null,
+    });
+  });
+
+  it('updates academic and lifestyle profile information', async () => {
+    usersService.findUserById.mockResolvedValue(userWithPassword);
+    usersService.updateUser.mockImplementation((_userId, data) =>
+      Promise.resolve({ ...userWithPassword, ...data }),
+    );
+
+    await expect(
+      service.updateProfile('user-id', {
+        faculty: '  School of Computing  ',
+        degree: 'Computer Science',
+        lifestylePreferences: '  Prefer morning classes  ',
+      }),
+    ).resolves.toMatchObject({
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      lifestylePreferences: 'Prefer morning classes',
+    });
+
+    expect(usersService.updateUser).toHaveBeenCalledWith('user-id', {
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      lifestylePreferences: 'Prefer morning classes',
     });
   });
 

@@ -3,12 +3,13 @@
 import { KeyRound, Save, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { popularChoiceFaculties } from '@/features/popular-choices/popularChoicesData';
 import { useUserProfile } from '@/features/user';
 
-const minimumGraduationYear = 1900;
-const maximumGraduationYear = 2100;
+const minimumProfileYear = 1900;
+const maximumProfileYear = 2100;
 
-function parseGraduationYear(value: string) {
+function parseYear(value: string) {
   if (!value.trim()) {
     return null;
   }
@@ -18,11 +19,39 @@ function parseGraduationYear(value: string) {
   return Number.isInteger(parsedYear) ? parsedYear : Number.NaN;
 }
 
+function isInvalidProfileYear(value: number | null) {
+  return (
+    Number.isNaN(value) ||
+    (value !== null &&
+      (value < minimumProfileYear || value > maximumProfileYear))
+  );
+}
+
+function getFacultyId(storedFaculty: string | null) {
+  if (!storedFaculty) {
+    return '';
+  }
+
+  return (
+    popularChoiceFaculties.find(
+      (faculty) =>
+        faculty.id === storedFaculty ||
+        faculty.title === storedFaculty ||
+        faculty.previousIds?.includes(storedFaculty) ||
+        faculty.previousTitles?.includes(storedFaculty),
+    )?.id ?? ''
+  );
+}
+
 export function SettingsPage() {
   const { isLoadingProfile, profile, profileError, updateProfile } =
     useUserProfile();
   const [username, setUsername] = useState('');
   const [graduationYear, setGraduationYear] = useState('');
+  const [matriculationYear, setMatriculationYear] = useState('');
+  const [facultyId, setFacultyId] = useState('');
+  const [major, setMajor] = useState('');
+  const [lifestylePreferences, setLifestylePreferences] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -55,6 +84,21 @@ export function SettingsPage() {
       setGraduationYear(
         profile.graduationYear ? String(profile.graduationYear) : '',
       );
+      setMatriculationYear(
+        profile.matriculationYear ? String(profile.matriculationYear) : '',
+      );
+      const nextFacultyId = getFacultyId(profile.faculty);
+      const nextFaculty = popularChoiceFaculties.find(
+        (faculty) => faculty.id === nextFacultyId,
+      );
+      const nextMajor = nextFaculty?.degrees.find(
+        (degree) =>
+          degree.title === profile.degree || degree.id === profile.degree,
+      );
+
+      setFacultyId(nextFacultyId);
+      setMajor(nextMajor?.title ?? '');
+      setLifestylePreferences(profile.lifestylePreferences ?? '');
     });
 
     return () => {
@@ -67,16 +111,19 @@ export function SettingsPage() {
     setProfileStatus(null);
     setProfileSubmitError(null);
 
-    const parsedGraduationYear = parseGraduationYear(graduationYear);
+    const parsedGraduationYear = parseYear(graduationYear);
+    const parsedMatriculationYear = parseYear(matriculationYear);
 
-    if (
-      Number.isNaN(parsedGraduationYear) ||
-      (parsedGraduationYear !== null &&
-        (parsedGraduationYear < minimumGraduationYear ||
-          parsedGraduationYear > maximumGraduationYear))
-    ) {
+    if (isInvalidProfileYear(parsedGraduationYear)) {
       setProfileSubmitError(
         'Graduation year must be a valid year between 1900 and 2100.',
+      );
+      return;
+    }
+
+    if (isInvalidProfileYear(parsedMatriculationYear)) {
+      setProfileSubmitError(
+        'Matriculation year must be a valid year between 1900 and 2100.',
       );
       return;
     }
@@ -84,8 +131,16 @@ export function SettingsPage() {
     setIsSavingProfile(true);
 
     try {
+      const selectedFaculty = popularChoiceFaculties.find(
+        (faculty) => faculty.id === facultyId,
+      );
+
       await updateProfile({
+        degree: major || null,
+        faculty: selectedFaculty?.title ?? null,
         graduationYear: parsedGraduationYear,
+        matriculationYear: parsedMatriculationYear,
+        lifestylePreferences: lifestylePreferences.trim() || null,
         username: username.trim() || null,
       });
       setProfileStatus('Personal information updated.');
@@ -195,11 +250,82 @@ export function SettingsPage() {
               <input
                 type="number"
                 value={graduationYear}
-                min={minimumGraduationYear}
-                max={maximumGraduationYear}
+                min={minimumProfileYear}
+                max={maximumProfileYear}
                 onChange={(event) => setGraduationYear(event.target.value)}
                 disabled={isLoadingProfile || isSavingProfile}
                 className="h-11 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-200 disabled:bg-gray-100"
+              />
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-gray-700">
+              Matriculation Year
+              <input
+                type="number"
+                value={matriculationYear}
+                min={minimumProfileYear}
+                max={maximumProfileYear}
+                onChange={(event) => setMatriculationYear(event.target.value)}
+                disabled={isLoadingProfile || isSavingProfile}
+                className="h-11 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-200 disabled:bg-gray-100"
+              />
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-gray-700">
+              Faculty
+              <select
+                value={facultyId}
+                onChange={(event) => {
+                  setFacultyId(event.target.value);
+                  setMajor('');
+                }}
+                disabled={isLoadingProfile || isSavingProfile}
+                className="h-11 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-200 disabled:bg-gray-100"
+              >
+                <option value="">Select faculty</option>
+                {popularChoiceFaculties.map((faculty) => (
+                  <option key={faculty.id} value={faculty.id}>
+                    {faculty.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-gray-700">
+              Major
+              <select
+                value={major}
+                onChange={(event) => setMajor(event.target.value)}
+                disabled={
+                  !facultyId || isLoadingProfile || isSavingProfile
+                }
+                className="h-11 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-200 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                <option value="">
+                  {facultyId ? 'Select major' : 'Select a faculty first'}
+                </option>
+                {popularChoiceFaculties
+                  .find((faculty) => faculty.id === facultyId)
+                  ?.degrees.map((degree) => (
+                    <option key={degree.id} value={degree.title}>
+                      {degree.title}
+                    </option>
+                  ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-gray-700">
+              Lifestyle Preferences
+              <textarea
+                value={lifestylePreferences}
+                maxLength={2000}
+                rows={5}
+                placeholder="Max workload? Morning classes? Focusing on CCA/Internship?"
+                onChange={(event) =>
+                  setLifestylePreferences(event.target.value)
+                }
+                disabled={isLoadingProfile || isSavingProfile}
+                className="min-h-28 resize-y rounded-md border border-gray-300 bg-white px-3 py-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-300 focus:ring-2 focus:ring-orange-200 disabled:bg-gray-100"
               />
             </label>
 

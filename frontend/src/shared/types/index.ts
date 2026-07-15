@@ -1,4 +1,5 @@
 export * from './auth.types';
+export * from './ai-planner.types';
 export * from './dashboard.types';
 export * from './nusmodule.types';
 export * from './nusmods.types';
