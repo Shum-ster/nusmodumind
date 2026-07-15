@@ -4,27 +4,7 @@ import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { firstValueFrom } from 'rxjs';
 import { Prisma } from '@prisma/client';
-
-type NusModsModuleInfo = {
-  moduleCode: string;
-  title: string;
-  description?: string | null;
-  moduleCredit?: string | null;
-  department?: string | null;
-  faculty?: string | null;
-  gradingBasisDescription?: string | null;
-  prerequisite?: string | null;
-  preclusion?: string | null;
-  corequisite?: string | null;
-  workload?: Prisma.InputJsonValue | null;
-  semesterData?: Prisma.InputJsonValue | null;
-  attributes?: Prisma.InputJsonValue | null;
-};
-
-type NusModuleUpsertData = Omit<
-  Prisma.NusModuleUncheckedCreateInput,
-  'moduleCode' | 'lastUpdated'
->;
+import type { NusModsModuleInfo, NusModuleUpsertData } from '../shared/types';
 
 @Injectable()
 export class NusModulesCronService {

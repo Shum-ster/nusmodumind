@@ -1,52 +1,22 @@
 import { apiRequest } from '@/shared/api';
+import type {
+  CreatePlanReviewBody,
+  CreatePublicPlanBody,
+  PlanReview,
+  PublicPlan,
+  PublicPlanDetail,
+  PublicPlansQuery,
+} from '@/shared/types';
 
-export type PopularChoiceAuthor = {
-  username: string | null;
-  faculty: string | null;
-  degree: string | null;
-};
-
-export type PlanReview = {
-  id: string;
-  userId: string;
-  publicPlanId: string;
-  rating: number;
-  content: string;
-  createdAt: string;
-  user: PopularChoiceAuthor;
-};
-
-export type PublicPlan = {
-  id: string;
-  authorId: string;
-  title: string;
-  description: string | null;
-  planSnapshot: unknown;
-  upvotes: number;
-  createdAt: string;
-  author: PopularChoiceAuthor;
-};
-
-export type PublicPlanDetail = PublicPlan & {
-  reviews: PlanReview[];
-};
-
-type PublicPlansQuery = {
-  faculty?: string | null;
-  degree?: string | null;
-};
-
-type CreatePublicPlanBody = {
-  title: string;
-  description?: string;
-  planSnapshot: unknown;
-};
-
-type CreatePlanReviewBody = {
-  publicPlanId: string;
-  rating: number;
-  content: string;
-};
+export type {
+  CreatePlanReviewBody,
+  CreatePublicPlanBody,
+  PlanAuthorSummary,
+  PlanReview,
+  PublicPlan,
+  PublicPlanDetail,
+  PublicPlansQuery,
+} from '@/shared/types';
 
 export function getPublicPlans(query: PublicPlansQuery = {}) {
   return apiRequest<PublicPlan[]>('/public-plans', { query });

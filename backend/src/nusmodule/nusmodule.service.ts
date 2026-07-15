@@ -1,15 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { NusModule, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-
-type FindAllModulesOptions = {
-  cursor?: string;
-  department?: string;
-  faculty?: string;
-  limit?: number;
-  moduleCodePrefix?: string;
-  search?: string;
-};
+import type { FindAllModulesOptions } from '../shared/types';
 
 @Injectable()
 export class NusmoduleService {

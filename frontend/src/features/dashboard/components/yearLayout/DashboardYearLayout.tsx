@@ -1,5 +1,9 @@
-import type { SemesterKey, SemesterNumber, YearNumber } from '../../DashboardModuleSelectionContext';
-import type { DashboardModule } from '../../types';
+import type {
+  DashboardModule,
+  SemesterKey,
+  SemesterNumber,
+  YearNumber,
+} from '@/shared/types';
 import { DashboardSemesterLayout } from './DashboardSemesterLayout';
 
 type DashboardYearUserInfo = {

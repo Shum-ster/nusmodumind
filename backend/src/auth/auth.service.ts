@@ -14,7 +14,7 @@ import type {
   AuthenticatedUser,
   LoginResponse,
   UserProfile,
-} from './auth.types';
+} from '../shared/types';
 
 @Injectable()
 export class AuthService {

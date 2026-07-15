@@ -2,9 +2,8 @@
 
 import { GitBranch } from 'lucide-react';
 import { useMemo } from 'react';
-import type { SemesterKey } from '@/features/dashboard/DashboardModuleSelectionContext';
 import { useDashboardModuleSelection } from '@/features/dashboard/DashboardModuleSelectionContext';
-import type { DashboardModule } from '@/features/dashboard/types';
+import type { DashboardModule, SemesterKey } from '@/shared/types';
 import type { NusModuleDetail } from '../courses-api';
 import { extractModuleCodes, formatDashboardSemesterLabel, parsePrerequisiteGroups } from '../course-utils';
 

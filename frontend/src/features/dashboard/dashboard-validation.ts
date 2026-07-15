@@ -1,22 +1,20 @@
-import type { SemesterKey, SemesterNumber, YearNumber } from './DashboardModuleSelectionContext';
+import type {
+  DashboardModule,
+  NusModsSemesterData,
+  SemesterKey,
+  SemesterNumber,
+  UnsatisfiedModuleIssue,
+  YearNumber,
+} from '@/shared/types';
 import { isGradePassingPrerequisite } from './dashboard-grades';
-import type { DashboardModule } from './types';
 
-export type UnsatisfiedModuleIssue = {
-  moduleCode: string;
-  reasons: string[];
-};
+export type { UnsatisfiedModuleIssue } from '@/shared/types';
 
 type BuildUnsatisfiedModuleIssuesOptions = {
   exemptedModules: DashboardModule[];
   modules: DashboardModule[];
   semesterKey: SemesterKey;
   semesterModules: Record<SemesterKey, DashboardModule[]>;
-};
-
-type SemesterDataEntry = {
-  examDate?: unknown;
-  semester?: unknown;
 };
 
 const moduleCodePattern = /\b[A-Z]{2,4}\d{4}[A-Z]{0,3}\b/g;
@@ -151,7 +149,7 @@ function getModuleExamDate(module: DashboardModule, semesterNumber: SemesterNumb
     return null;
   }
 
-  const semesterData = module.semesterData as SemesterDataEntry[];
+  const semesterData = module.semesterData as NusModsSemesterData[];
   const matchingSemester = semesterData.find((semester) => Number(semester.semester) === semesterNumber);
   const examDate = matchingSemester?.examDate;
 

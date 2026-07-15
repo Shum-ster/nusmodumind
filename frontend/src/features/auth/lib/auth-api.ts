@@ -1,25 +1,10 @@
 import { apiRequest } from '@/shared/api';
-import type { AuthCredentials } from '../types';
-
-type LoginResponse = {
-  access_token: string;
-};
-
-export type CurrentUserProfile = {
-  id: string;
-  email: string;
-  username: string | null;
-  faculty: string | null;
-  degree: string | null;
-  graduationYear: number | null;
-};
-
-export type UpdateCurrentUserProfileBody = {
-  username?: string | null;
-  graduationYear?: number | null;
-  currentPassword?: string;
-  newPassword?: string;
-};
+import type {
+  AuthCredentials,
+  LoginResponse,
+  UpdateUserProfileBody,
+  UserProfile,
+} from '@/shared/types';
 
 export async function register(credentials: AuthCredentials) {
   await apiRequest('/auth/register', {
@@ -42,14 +27,14 @@ export async function login(credentials: AuthCredentials) {
 }
 
 export async function getCurrentUser(token: string) {
-  return apiRequest<CurrentUserProfile>('/auth/me', { token });
+  return apiRequest<UserProfile>('/auth/me', { token });
 }
 
 export async function updateCurrentUserProfile(
   token: string,
-  body: UpdateCurrentUserProfileBody,
+  body: UpdateUserProfileBody,
 ) {
-  return apiRequest<CurrentUserProfile>('/auth/me', {
+  return apiRequest<UserProfile>('/auth/me', {
     method: 'PATCH',
     token,
     body,

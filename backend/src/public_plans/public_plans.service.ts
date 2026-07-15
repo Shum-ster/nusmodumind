@@ -6,40 +6,12 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePublicPlanDto } from './dto/create-public_plan.dto';
 import { Prisma, PublicPlan } from '@prisma/client';
-
-const marketplaceAuthorSelect = {
-  username: true,
-  faculty: true,
-  degree: true,
-} satisfies Prisma.UserSelect;
-
-type FindAllPublicPlansOptions = {
-  degree?: string;
-  faculty?: string;
-};
-
-type PublicPlanListItem = Prisma.PublicPlanGetPayload<{
-  include: {
-    author: {
-      select: typeof marketplaceAuthorSelect;
-    };
-  };
-}>;
-
-type PublicPlanDetail = Prisma.PublicPlanGetPayload<{
-  include: {
-    author: {
-      select: typeof marketplaceAuthorSelect;
-    };
-    reviews: {
-      include: {
-        user: {
-          select: typeof marketplaceAuthorSelect;
-        };
-      };
-    };
-  };
-}>;
+import {
+  planAuthorSelect,
+  type FindAllPublicPlansOptions,
+  type PublicPlanDetail,
+  type PublicPlanListItem,
+} from '../shared/types';
 
 @Injectable()
 export class PublicPlansService {
@@ -76,7 +48,7 @@ export class PublicPlansService {
       where,
       orderBy: { upvotes: 'desc' },
       include: {
-        author: { select: marketplaceAuthorSelect },
+        author: { select: planAuthorSelect },
       },
     });
   }
@@ -85,9 +57,9 @@ export class PublicPlansService {
     const plan = await this.prisma.publicPlan.findUnique({
       where: { id },
       include: {
-        author: { select: marketplaceAuthorSelect },
+        author: { select: planAuthorSelect },
         reviews: {
-          include: { user: { select: marketplaceAuthorSelect } },
+          include: { user: { select: planAuthorSelect } },
           orderBy: { createdAt: 'desc' },
         },
       },

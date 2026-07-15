@@ -1,46 +1,19 @@
-import type { NusModuleDetail } from "@/features/courses";
 import { apiRequest } from "@/shared/api";
+import type {
+  CreateSemesterBody,
+  CurrentUserPlan,
+  PlannedModulePayload,
+  PlannedModuleRecord,
+  SemesterRecord,
+} from "@/shared/types";
 
-export type PlannedModuleStatus = "SELECTED" | "EXEMPTED" | "PLANNED";
-
-export type SemesterRecord = {
-  id: string;
-  acadYear: string;
-  semesterNumber: number;
-  userId: string;
-};
-
-export type PlannedModuleRecord = {
-  id: string;
-  semesterId: string | null;
-  userId: string;
-  moduleCode: string;
-  status: PlannedModuleStatus;
-  expectedGrade: string | null;
-  actualGrade: string | null;
-  selectedLessons: unknown;
-  module: NusModuleDetail;
-  semester: SemesterRecord | null;
-};
-
-export type CurrentUserPlan = {
-  semesters: SemesterRecord[];
-  plannedModules: PlannedModuleRecord[];
-};
-
-export type PlannedModulePayload = {
-  moduleCode: string;
-  status?: PlannedModuleStatus;
-  semesterId?: string | null;
-  expectedGrade?: string | null;
-  actualGrade?: string | null;
-  selectedLessons?: unknown;
-};
-
-type CreateSemesterBody = {
-  acadYear: string;
-  semesterNumber: number;
-};
+export type {
+  CurrentUserPlan,
+  PlannedModulePayload,
+  PlannedModuleRecord,
+  PlannedModuleStatus,
+  SemesterRecord,
+} from "@/shared/types";
 
 export function getCurrentUserPlan(token: string) {
   return apiRequest<CurrentUserPlan>("/semesters/me/plan", { token });

@@ -1,5 +1,4 @@
-import type { SemesterKey } from '../../DashboardModuleSelectionContext';
-import type { DashboardModule } from '../../types';
+import type { DashboardModule, SemesterKey } from '@/shared/types';
 import { useDashboardModuleSelection } from '../../DashboardModuleSelectionContext';
 import { getDashboardModuleDropData, setDashboardModuleDragData } from '../../dashboard-drag';
 import {

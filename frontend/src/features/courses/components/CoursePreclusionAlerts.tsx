@@ -1,9 +1,8 @@
 'use client';
 
 import { AlertTriangle } from 'lucide-react';
-import type { SemesterKey } from '@/features/dashboard/DashboardModuleSelectionContext';
 import { useDashboardModuleSelection } from '@/features/dashboard/DashboardModuleSelectionContext';
-import type { DashboardModule } from '@/features/dashboard/types';
+import type { DashboardModule, SemesterKey } from '@/shared/types';
 import { extractModuleCodes, formatDashboardSemesterLabel } from '../course-utils';
 
 type CoursePreclusionAlertsProps = {

@@ -1,5 +1,5 @@
 import type { DragEvent } from 'react';
-import type { DashboardModule } from './types';
+import type { DashboardModule } from '@/shared/types';
 
 const dashboardModuleDragType = 'application/x-nusmodumind-dashboard-module';
 

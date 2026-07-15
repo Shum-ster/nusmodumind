@@ -1,11 +1,11 @@
 'use client';
 
 import type { DragEvent } from 'react';
-import { NusModuleSearchBar, type NusModuleListItem } from '@/features/courses';
+import { NusModuleSearchBar } from '@/features/courses';
+import type { DashboardModule, NusModuleListItem } from '@/shared/types';
 import { useDashboardModuleSelection } from '../DashboardModuleSelectionContext';
 import { setDashboardModuleDragData } from '../dashboard-drag';
 import { isModuleSuEligible } from '../dashboard-grades';
-import type { DashboardModule } from '../types';
 
 function getEstimatedWorkload(workload: unknown) {
   if (!Array.isArray(workload)) {

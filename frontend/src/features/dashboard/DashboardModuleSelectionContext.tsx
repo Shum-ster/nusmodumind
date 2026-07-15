@@ -27,11 +27,12 @@ import {
   normalizeDashboardGrade,
   type DashboardGrade,
 } from './dashboard-grades';
-import type { DashboardModule } from './types';
-
-type YearNumber = 1 | 2 | 3 | 4;
-type SemesterNumber = 1 | 2;
-type SemesterKey = `year-${YearNumber}-semester-${SemesterNumber}`;
+import type {
+  DashboardModule,
+  SemesterKey,
+  SemesterNumber,
+  YearNumber,
+} from '@/shared/types';
 
 type DashboardModuleSelectionContextValue = {
   completedSemesterKeys: Record<SemesterKey, boolean>;
@@ -777,4 +778,4 @@ export function useDashboardModuleSelection() {
   return context;
 }
 
-export type { SemesterKey, SemesterNumber, YearNumber };
+export type { SemesterKey, SemesterNumber, YearNumber } from '@/shared/types';

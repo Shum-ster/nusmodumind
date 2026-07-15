@@ -1,5 +1,9 @@
-import { searchNusModules, type NusModuleListItem } from './courses-api';
-import type { SemesterKey } from '@/features/dashboard/DashboardModuleSelectionContext';
+import { searchNusModules } from './courses-api';
+import type {
+  NusModuleListItem,
+  NusModsSemesterData,
+  SemesterKey,
+} from '@/shared/types';
 
 const moduleCodePattern = /\b[A-Z]{2,4}\d{4}[A-Z]{0,3}\b/g;
 const maxModulePageSize = 50;
@@ -7,13 +11,6 @@ const maxModulePageSize = 50;
 export type PrerequisiteGroup = {
   codes: string[];
   relation: 'all of' | 'one of';
-};
-
-export type SemesterDataEntry = {
-  examDate?: string | null;
-  examDuration?: number | null;
-  semester?: number | null;
-  timetable?: unknown;
 };
 
 export function extractModuleCodes(text?: string | null) {
@@ -24,8 +21,8 @@ export function extractModuleCodes(text?: string | null) {
   return Array.from(new Set(text.match(moduleCodePattern) ?? []));
 }
 
-export function getSemesterData(semesterData: unknown): SemesterDataEntry[] {
-  return Array.isArray(semesterData) ? semesterData as SemesterDataEntry[] : [];
+export function getSemesterData(semesterData: unknown): NusModsSemesterData[] {
+  return Array.isArray(semesterData) ? semesterData as NusModsSemesterData[] : [];
 }
 
 export function parsePrerequisiteGroups(prerequisite?: string | null): PrerequisiteGroup[] {

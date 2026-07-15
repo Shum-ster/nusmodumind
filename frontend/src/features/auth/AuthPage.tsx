@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LoginForm } from "./components/LoginPage";
 import { getCurrentUser, login, register } from "./lib/auth-api";
 import { clearToken, getToken, saveToken } from "./lib/token-storage";
-import type { AuthCredentials } from "./types";
+import type { AuthCredentials } from '@/shared/types';
 
 export function AuthPage() {
   const router = useRouter();

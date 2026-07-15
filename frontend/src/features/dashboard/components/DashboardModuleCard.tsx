@@ -1,4 +1,4 @@
-import type { DashboardModule } from '../types';
+import type { DashboardModule } from '@/shared/types';
 
 type DashboardModuleCardProps = {
   module: DashboardModule;
