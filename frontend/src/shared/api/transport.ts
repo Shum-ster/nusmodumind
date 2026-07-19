@@ -1,5 +1,9 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
+export function createApiUrl(path: string) {
+  return new URL(`${API_BASE_URL}${path}`);
+}
+
 type ApiRequestOptions = {
   body?: unknown;
   method?: string;
@@ -11,7 +15,7 @@ export async function apiRequest<T>(
   path: string,
   { body, method = "GET", query, token }: ApiRequestOptions = {},
 ) {
-  const url = new URL(`${API_BASE_URL}${path}`);
+  const url = createApiUrl(path);
 
   Object.entries(query ?? {}).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {

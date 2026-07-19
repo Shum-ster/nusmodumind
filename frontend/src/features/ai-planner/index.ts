@@ -1,2 +1,2 @@
-export { getDegreeRequirements } from "./ai-planner-api";
+export { getDegreeRequirements, streamGeneralPrompt } from "./ai-planner-api";
 export type { DegreeRequirementsResponse } from "@/shared/types";

@@ -15,7 +15,6 @@ import type {
   StructuredWebSearchRequest,
   StructuredWebSearchResult,
   TextGenerationRequest,
-  TextGenerationResult,
 } from './openai.types';
 
 const defaultOpenAiModel = 'gpt-5.6-terra';
@@ -30,41 +29,64 @@ export class OpenAiGateway {
     private readonly configService: ConfigService,
   ) {}
 
-  async runTextGeneration(
+  async *streamTextGeneration(
     request: TextGenerationRequest,
-  ): Promise<TextGenerationResult> {
+    signal?: AbortSignal,
+  ): AsyncGenerator<string> {
     const model = this.getModel();
     const startedAt = Date.now();
+    let responseId: string | null = null;
+    let hasOutput = false;
 
     try {
-      const response = await this.clientProvider.getClient().responses.create({
-        model,
-        instructions: request.instructions,
-        input: request.input,
-        store: false,
-      });
-      const output = response.output_text.trim();
+      const stream = this.clientProvider.getClient().responses.stream(
+        {
+          model,
+          instructions: request.instructions,
+          input: request.input,
+          store: false,
+        },
+        { signal },
+      );
 
-      if (!output) {
+      for await (const event of stream) {
+        if (event.type === 'response.created') {
+          responseId = event.response.id;
+        }
+
+        if (event.type === 'response.output_text.delta' && event.delta) {
+          hasOutput = true;
+          yield event.delta;
+        }
+      }
+
+      const response = await stream.finalResponse();
+      responseId = response.id;
+
+      if (!hasOutput) {
         throw new BadGatewayException('OpenAI did not return text output');
       }
 
-      const durationMs = Date.now() - startedAt;
-
       this.logCompletedRequest({
-        durationMs,
+        durationMs: Date.now() - startedAt,
         model,
         promptVersion: request.promptVersion,
-        responseId: response.id,
+        responseId,
       });
-
-      return {
-        output,
-        durationMs,
-        model,
-        responseId: response.id,
-      };
     } catch (error) {
+      if (signal?.aborted || error instanceof OpenAI.APIUserAbortError) {
+        this.logger.log(
+          JSON.stringify({
+            durationMs: Date.now() - startedAt,
+            event: 'openai_response_cancelled',
+            model,
+            promptVersion: request.promptVersion,
+            responseId,
+          }),
+        );
+        throw error;
+      }
+
       this.logFailedRequest({
         durationMs: Date.now() - startedAt,
         error,
@@ -152,7 +174,7 @@ export class OpenAiGateway {
     durationMs: number;
     model: string;
     promptVersion: string;
-    responseId: string;
+    responseId: string | null;
   }) {
     this.logger.log(
       JSON.stringify({

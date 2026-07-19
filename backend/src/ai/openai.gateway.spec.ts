@@ -5,8 +5,8 @@ import { OpenAiClientProvider } from './openai-client.provider';
 import { OpenAiGateway } from './openai.gateway';
 
 describe('OpenAiGateway', () => {
-  let createResponse: jest.Mock;
   let parseResponse: jest.Mock;
+  let streamResponse: jest.Mock;
   let gateway: OpenAiGateway;
 
   const outputSchema = z
@@ -16,11 +16,11 @@ describe('OpenAiGateway', () => {
     .strict();
 
   beforeEach(() => {
-    createResponse = jest.fn();
     parseResponse = jest.fn();
+    streamResponse = jest.fn();
     const clientProvider = {
       getClient: jest.fn().mockReturnValue({
-        responses: { create: createResponse, parse: parseResponse },
+        responses: { parse: parseResponse, stream: streamResponse },
       }),
     };
     const configService = {
@@ -33,44 +33,56 @@ describe('OpenAiGateway', () => {
     );
   });
 
-  it('generates plain text without enabling tools', async () => {
-    createResponse.mockResolvedValue({
-      id: 'response-id',
-      output_text: '  Here is a module planning answer.  ',
-    });
+  it('streams plain text deltas without enabling tools', async () => {
+    streamResponse.mockReturnValue(
+      createResponseStream([
+        {
+          type: 'response.created',
+          response: { id: 'response-id' },
+        },
+        {
+          type: 'response.output_text.delta',
+          delta: 'Here is a ',
+        },
+        {
+          type: 'response.output_text.delta',
+          delta: 'module planning answer.',
+        },
+      ]),
+    );
+    const deltas: string[] = [];
 
-    const result = await gateway.runTextGeneration({
+    for await (const delta of gateway.streamTextGeneration({
       instructions: 'Answer directly',
       input: 'What should I study next semester?',
       promptVersion: 'general-prompt-v1',
-    });
+    })) {
+      deltas.push(delta);
+    }
 
-    expect(createResponse).toHaveBeenCalledWith({
-      model: 'gpt-5.6-terra',
-      instructions: 'Answer directly',
-      input: 'What should I study next semester?',
-      store: false,
-    });
-    expect(result).toMatchObject({
-      output: 'Here is a module planning answer.',
-      model: 'gpt-5.6-terra',
-      responseId: 'response-id',
-    });
-    expect(typeof result.durationMs).toBe('number');
+    expect(streamResponse).toHaveBeenCalledWith(
+      {
+        model: 'gpt-5.6-terra',
+        instructions: 'Answer directly',
+        input: 'What should I study next semester?',
+        store: false,
+      },
+      { signal: undefined },
+    );
+    expect(deltas).toEqual(['Here is a ', 'module planning answer.']);
   });
 
-  it('rejects an empty text response', async () => {
-    createResponse.mockResolvedValue({
-      id: 'response-id',
-      output_text: '   ',
-    });
+  it('rejects a stream without text output', async () => {
+    streamResponse.mockReturnValue(createResponseStream([]));
 
     await expect(
-      gateway.runTextGeneration({
-        instructions: 'Answer directly',
-        input: 'Hello',
-        promptVersion: 'general-prompt-v1',
-      }),
+      collectStream(
+        gateway.streamTextGeneration({
+          instructions: 'Answer directly',
+          input: 'Hello',
+          promptVersion: 'general-prompt-v1',
+        }),
+      ),
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 
@@ -207,3 +219,31 @@ describe('OpenAiGateway', () => {
     ).rejects.toBeInstanceOf(GatewayTimeoutException);
   });
 });
+
+function createResponseStream(events: Array<Record<string, unknown>>) {
+  let index = 0;
+
+  return {
+    [Symbol.asyncIterator]() {
+      return {
+        next: () =>
+          Promise.resolve(
+            index < events.length
+              ? { done: false as const, value: events[index++] }
+              : { done: true as const, value: undefined },
+          ),
+      };
+    },
+    finalResponse: jest.fn().mockResolvedValue({ id: 'response-id' }),
+  };
+}
+
+async function collectStream(stream: AsyncIterable<string>) {
+  const chunks: string[] = [];
+
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+
+  return chunks;
+}

@@ -6,10 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { OpenAiGateway } from '../ai/openai.gateway';
-import type {
-  DegreeRequirementsResponse,
-  GeneralPromptResponse,
-} from '../shared/types';
+import type { DegreeRequirementsResponse } from '../shared/types';
 import { UsersService } from '../users/users.service';
 import {
   degreeRequirementsPromptVersion,
@@ -38,18 +35,27 @@ export class AiPlannerService {
     private readonly openAiGateway: OpenAiGateway,
   ) {}
 
-  async runGeneralPrompt(prompt: string): Promise<GeneralPromptResponse> {
-    const result = await this.openAiGateway.runTextGeneration({
-      instructions: generalPromptInstructions,
-      input: prompt.trim(),
-      promptVersion: generalPromptVersion,
-    });
+  async *streamGeneralPrompt(
+    prompt: string,
+    signal?: AbortSignal,
+  ): AsyncGenerator<string> {
+    let output = '';
 
-    if (process.env.NODE_ENV !== 'production') {
-      this.logger.debug(`[AI Planner output] ${result.output}`);
+    for await (const delta of this.openAiGateway.streamTextGeneration(
+      {
+        instructions: generalPromptInstructions,
+        input: prompt.trim(),
+        promptVersion: generalPromptVersion,
+      },
+      signal,
+    )) {
+      output += delta;
+      yield delta;
     }
 
-    return { output: result.output };
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.debug(`[AI Planner output] ${output}`);
+    }
   }
 
   async getStoredDegreeRequirements(

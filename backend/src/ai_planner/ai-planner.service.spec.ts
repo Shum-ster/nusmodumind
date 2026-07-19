@@ -12,7 +12,7 @@ describe('AiPlannerService', () => {
   let usersService: { findUserById: jest.Mock };
   let openAiGateway: {
     runStructuredWebSearch: jest.Mock;
-    runTextGeneration: jest.Mock;
+    streamTextGeneration: jest.Mock;
   };
 
   const modelOutput = {
@@ -52,12 +52,11 @@ describe('AiPlannerService', () => {
       findUserById: jest.fn(),
     };
     openAiGateway = {
-      runTextGeneration: jest.fn().mockResolvedValue({
-        output: 'Take CS2030S next semester.',
-        durationMs: 10,
-        model: 'gpt-5.6-terra',
-        responseId: 'response-id',
-      }),
+      streamTextGeneration: jest
+        .fn()
+        .mockReturnValue(
+          createStringStream(['Take CS2030S ', 'next semester.']),
+        ),
       runStructuredWebSearch: jest.fn().mockResolvedValue({
         data: modelOutput,
         durationMs: 10,
@@ -72,11 +71,15 @@ describe('AiPlannerService', () => {
     );
   });
 
-  it('runs a trimmed general prompt and returns plain text', async () => {
-    await expect(
-      service.runGeneralPrompt('  What should I take next?  '),
-    ).resolves.toEqual({ output: 'Take CS2030S next semester.' });
-    const textGenerationCalls = openAiGateway.runTextGeneration.mock
+  it('streams a trimmed general prompt as plain text', async () => {
+    const abortController = new AbortController();
+    const deltas = await collectStream(
+      service.streamGeneralPrompt(
+        '  What should I take next?  ',
+        abortController.signal,
+      ),
+    );
+    const textGenerationCalls = openAiGateway.streamTextGeneration.mock
       .calls as Array<
       [
         {
@@ -84,13 +87,16 @@ describe('AiPlannerService', () => {
           input: string;
           promptVersion: string;
         },
+        AbortSignal,
       ]
     >;
     const request = textGenerationCalls[0][0];
 
+    expect(deltas).toEqual(['Take CS2030S ', 'next semester.']);
     expect(request.instructions).toContain('NUSModuMind');
     expect(request.input).toBe('What should I take next?');
     expect(request.promptVersion).toBe('general-prompt-v1');
+    expect(textGenerationCalls[0][1]).toBe(abortController.signal);
   });
 
   it('generates requirements from the proposed academic identity', async () => {
@@ -176,3 +182,30 @@ describe('AiPlannerService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
+
+async function collectStream(stream: AsyncIterable<string>) {
+  const chunks: string[] = [];
+
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+
+  return chunks;
+}
+
+function createStringStream(chunks: string[]): AsyncIterable<string> {
+  let index = 0;
+
+  return {
+    [Symbol.asyncIterator]() {
+      return {
+        next: () =>
+          Promise.resolve(
+            index < chunks.length
+              ? { done: false as const, value: chunks[index++] }
+              : { done: true as const, value: undefined },
+          ),
+      };
+    },
+  };
+}

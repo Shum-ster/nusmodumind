@@ -26,10 +26,3 @@ export type TextGenerationRequest = {
   instructions: string;
   promptVersion: string;
 };
-
-export type TextGenerationResult = {
-  output: string;
-  durationMs: number;
-  model: string;
-  responseId: string;
-};
