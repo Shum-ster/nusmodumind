@@ -14,6 +14,8 @@ import type {
   OpenAiSource,
   StructuredWebSearchRequest,
   StructuredWebSearchResult,
+  TextGenerationRequest,
+  TextGenerationResult,
 } from './openai.types';
 
 const defaultOpenAiModel = 'gpt-5.6-terra';
@@ -28,12 +30,56 @@ export class OpenAiGateway {
     private readonly configService: ConfigService,
   ) {}
 
+  async runTextGeneration(
+    request: TextGenerationRequest,
+  ): Promise<TextGenerationResult> {
+    const model = this.getModel();
+    const startedAt = Date.now();
+
+    try {
+      const response = await this.clientProvider.getClient().responses.create({
+        model,
+        instructions: request.instructions,
+        input: request.input,
+        store: false,
+      });
+      const output = response.output_text.trim();
+
+      if (!output) {
+        throw new BadGatewayException('OpenAI did not return text output');
+      }
+
+      const durationMs = Date.now() - startedAt;
+
+      this.logCompletedRequest({
+        durationMs,
+        model,
+        promptVersion: request.promptVersion,
+        responseId: response.id,
+      });
+
+      return {
+        output,
+        durationMs,
+        model,
+        responseId: response.id,
+      };
+    } catch (error) {
+      this.logFailedRequest({
+        durationMs: Date.now() - startedAt,
+        error,
+        model,
+        promptVersion: request.promptVersion,
+      });
+
+      throw mapOpenAiError(error);
+    }
+  }
+
   async runStructuredWebSearch<Schema extends z.ZodType>(
     request: StructuredWebSearchRequest<Schema>,
   ): Promise<StructuredWebSearchResult<z.infer<Schema>>> {
-    const model =
-      this.configService.get<string>('OPENAI_MODEL')?.trim() ||
-      defaultOpenAiModel;
+    const model = this.getModel();
     const startedAt = Date.now();
 
     try {
@@ -67,15 +113,12 @@ export class OpenAiGateway {
       const durationMs = Date.now() - startedAt;
       const sources = extractNusSources(response.output);
 
-      this.logger.log(
-        JSON.stringify({
-          durationMs,
-          event: 'openai_response_completed',
-          model,
-          promptVersion: request.promptVersion,
-          responseId: response.id,
-        }),
-      );
+      this.logCompletedRequest({
+        durationMs,
+        model,
+        promptVersion: request.promptVersion,
+        responseId: response.id,
+      });
 
       return {
         data: parsedOutput.data,
@@ -87,18 +130,53 @@ export class OpenAiGateway {
     } catch (error) {
       const durationMs = Date.now() - startedAt;
 
-      this.logger.error(
-        JSON.stringify({
-          durationMs,
-          errorCategory: getErrorCategory(error),
-          event: 'openai_response_failed',
-          model,
-          promptVersion: request.promptVersion,
-        }),
-      );
+      this.logFailedRequest({
+        durationMs,
+        error,
+        model,
+        promptVersion: request.promptVersion,
+      });
 
       throw mapOpenAiError(error);
     }
+  }
+
+  private getModel() {
+    return (
+      this.configService.get<string>('OPENAI_MODEL')?.trim() ||
+      defaultOpenAiModel
+    );
+  }
+
+  private logCompletedRequest(details: {
+    durationMs: number;
+    model: string;
+    promptVersion: string;
+    responseId: string;
+  }) {
+    this.logger.log(
+      JSON.stringify({
+        ...details,
+        event: 'openai_response_completed',
+      }),
+    );
+  }
+
+  private logFailedRequest(details: {
+    durationMs: number;
+    error: unknown;
+    model: string;
+    promptVersion: string;
+  }) {
+    const { error, ...requestDetails } = details;
+
+    this.logger.error(
+      JSON.stringify({
+        ...requestDetails,
+        errorCategory: getErrorCategory(error),
+        event: 'openai_response_failed',
+      }),
+    );
   }
 }
 

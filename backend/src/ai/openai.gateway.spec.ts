@@ -5,6 +5,7 @@ import { OpenAiClientProvider } from './openai-client.provider';
 import { OpenAiGateway } from './openai.gateway';
 
 describe('OpenAiGateway', () => {
+  let createResponse: jest.Mock;
   let parseResponse: jest.Mock;
   let gateway: OpenAiGateway;
 
@@ -15,10 +16,11 @@ describe('OpenAiGateway', () => {
     .strict();
 
   beforeEach(() => {
+    createResponse = jest.fn();
     parseResponse = jest.fn();
     const clientProvider = {
       getClient: jest.fn().mockReturnValue({
-        responses: { parse: parseResponse },
+        responses: { create: createResponse, parse: parseResponse },
       }),
     };
     const configService = {
@@ -29,6 +31,47 @@ describe('OpenAiGateway', () => {
       clientProvider as unknown as OpenAiClientProvider,
       configService as unknown as ConfigService,
     );
+  });
+
+  it('generates plain text without enabling tools', async () => {
+    createResponse.mockResolvedValue({
+      id: 'response-id',
+      output_text: '  Here is a module planning answer.  ',
+    });
+
+    const result = await gateway.runTextGeneration({
+      instructions: 'Answer directly',
+      input: 'What should I study next semester?',
+      promptVersion: 'general-prompt-v1',
+    });
+
+    expect(createResponse).toHaveBeenCalledWith({
+      model: 'gpt-5.6-terra',
+      instructions: 'Answer directly',
+      input: 'What should I study next semester?',
+      store: false,
+    });
+    expect(result).toMatchObject({
+      output: 'Here is a module planning answer.',
+      model: 'gpt-5.6-terra',
+      responseId: 'response-id',
+    });
+    expect(typeof result.durationMs).toBe('number');
+  });
+
+  it('rejects an empty text response', async () => {
+    createResponse.mockResolvedValue({
+      id: 'response-id',
+      output_text: '   ',
+    });
+
+    await expect(
+      gateway.runTextGeneration({
+        instructions: 'Answer directly',
+        input: 'Hello',
+        promptVersion: 'general-prompt-v1',
+      }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
   });
 
   it('runs a required NUS-only structured web search', async () => {

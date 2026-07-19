@@ -20,3 +20,16 @@ export type StructuredWebSearchResult<Output> = {
   responseId: string;
   sources: OpenAiSource[];
 };
+
+export type TextGenerationRequest = {
+  input: string;
+  instructions: string;
+  promptVersion: string;
+};
+
+export type TextGenerationResult = {
+  output: string;
+  durationMs: number;
+  model: string;
+  responseId: string;
+};

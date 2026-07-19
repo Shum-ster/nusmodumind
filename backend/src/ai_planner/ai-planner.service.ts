@@ -2,10 +2,14 @@ import {
   BadGatewayException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { OpenAiGateway } from '../ai/openai.gateway';
-import type { DegreeRequirementsResponse } from '../shared/types';
+import type {
+  DegreeRequirementsResponse,
+  GeneralPromptResponse,
+} from '../shared/types';
 import { UsersService } from '../users/users.service';
 import {
   degreeRequirementsPromptVersion,
@@ -17,16 +21,36 @@ import {
   type DegreeRequirementsPromptContext,
 } from './prompts/degree-requirements.prompt';
 import {
+  generalPromptInstructions,
+  generalPromptVersion,
+} from './prompts/general-prompt.prompt';
+import {
   degreeRequirementsModelOutputSchema,
   degreeRequirementsResponseSchema,
 } from './schemas/degree-requirements.schema';
 
 @Injectable()
 export class AiPlannerService {
+  private readonly logger = new Logger(AiPlannerService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly openAiGateway: OpenAiGateway,
   ) {}
+
+  async runGeneralPrompt(prompt: string): Promise<GeneralPromptResponse> {
+    const result = await this.openAiGateway.runTextGeneration({
+      instructions: generalPromptInstructions,
+      input: prompt.trim(),
+      promptVersion: generalPromptVersion,
+    });
+
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.debug(`[AI Planner output] ${result.output}`);
+    }
+
+    return { output: result.output };
+  }
 
   async getStoredDegreeRequirements(
     userId: string,

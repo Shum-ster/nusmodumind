@@ -56,3 +56,7 @@ export type DegreeRequirementsResponse = {
   generatedAt: string;
   promptVersion: 'degree-requirements-v2';
 };
+
+export type GeneralPromptResponse = {
+  output: string;
+};

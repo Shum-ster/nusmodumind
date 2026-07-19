@@ -10,7 +10,10 @@ import { AiPlannerService } from './ai-planner.service';
 describe('AiPlannerService', () => {
   let service: AiPlannerService;
   let usersService: { findUserById: jest.Mock };
-  let openAiGateway: { runStructuredWebSearch: jest.Mock };
+  let openAiGateway: {
+    runStructuredWebSearch: jest.Mock;
+    runTextGeneration: jest.Mock;
+  };
 
   const modelOutput = {
     coreRequirements: [
@@ -49,6 +52,12 @@ describe('AiPlannerService', () => {
       findUserById: jest.fn(),
     };
     openAiGateway = {
+      runTextGeneration: jest.fn().mockResolvedValue({
+        output: 'Take CS2030S next semester.',
+        durationMs: 10,
+        model: 'gpt-5.6-terra',
+        responseId: 'response-id',
+      }),
       runStructuredWebSearch: jest.fn().mockResolvedValue({
         data: modelOutput,
         durationMs: 10,
@@ -61,6 +70,27 @@ describe('AiPlannerService', () => {
       usersService as unknown as UsersService,
       openAiGateway as unknown as OpenAiGateway,
     );
+  });
+
+  it('runs a trimmed general prompt and returns plain text', async () => {
+    await expect(
+      service.runGeneralPrompt('  What should I take next?  '),
+    ).resolves.toEqual({ output: 'Take CS2030S next semester.' });
+    const textGenerationCalls = openAiGateway.runTextGeneration.mock
+      .calls as Array<
+      [
+        {
+          instructions: string;
+          input: string;
+          promptVersion: string;
+        },
+      ]
+    >;
+    const request = textGenerationCalls[0][0];
+
+    expect(request.instructions).toContain('NUSModuMind');
+    expect(request.input).toBe('What should I take next?');
+    expect(request.promptVersion).toBe('general-prompt-v1');
   });
 
   it('generates requirements from the proposed academic identity', async () => {
