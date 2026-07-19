@@ -12,21 +12,23 @@ datasource db {
 }
 
 model User {
-  id                   String  @id @default(uuid()) @db.Uuid
-  email                String  @unique
-  passwordHash         String  @map("password_hash")
-  username             String?
-  faculty              String?
-  degree               String?
-  graduationYear       Int?    @map("graduation_year")
-  matriculationYear    Int?    @map("matriculation_year")
-  lifestylePreferences String? @map("lifestyle_preferences") @db.Text
+  id                             String    @id @default(uuid()) @db.Uuid
+  email                          String    @unique
+  passwordHash                   String    @map("password_hash")
+  username                       String?
+  faculty                        String?
+  degree                         String?
+  graduationYear                 Int?      @map("graduation_year")
+  matriculationYear              Int?      @map("matriculation_year")
+  lifestylePreferences           String?   @map("lifestyle_preferences") @db.Text
+  graduationRequirements         Json?     @map("graduation_requirements")
+  academicProfileChangeAllowedAt DateTime? @map("academic_profile_change_allowed_at")
 
-  semesters     Semester[]
+  semesters      Semester[]
   plannedModules PlannedModule[]
-  moduleReviews ModuleReview[]
-  publicPlans   PublicPlan[]   @relation("AuthoredPlans")
-  planReviews   PlanReview[]
+  moduleReviews  ModuleReview[]
+  publicPlans    PublicPlan[]    @relation("AuthoredPlans")
+  planReviews    PlanReview[]
 
   @@map("users")
 }
@@ -34,7 +36,7 @@ model User {
 model NusModule {
   moduleCode              String   @id @map("module_code")
   title                   String
-  description             String?  
+  description             String?
   moduleCredit            String   @map("module_credit")
   department              String?
   faculty                 String
@@ -42,25 +44,25 @@ model NusModule {
   prerequisite            String?
   preclusion              String?
   corequisite             String?
-  workload                Json?    
+  workload                Json?
   semesterData            Json?    @map("semester_data")
   attributes              Json?
   lastUpdated             DateTime @default(now()) @updatedAt @map("last_updated")
 
-  plannedModules          PlannedModule[]
-  moduleReviews           ModuleReview[]
+  plannedModules PlannedModule[]
+  moduleReviews  ModuleReview[]
 
   @@map("nus_modules")
 }
 
 model Semester {
-  id              String          @id @default(uuid()) @db.Uuid
-  acadYear        String          @map("acad_year") // e.g., "2023/2024"
-  semesterNumber  Int             @map("semester_number") // 1 or 2
-  userId          String          @map("user_id") @db.Uuid
-  
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plannedModules  PlannedModule[]
+  id             String @id @default(uuid()) @db.Uuid
+  acadYear       String @map("acad_year") // e.g., "2023/2024"
+  semesterNumber Int    @map("semester_number") // 1 or 2
+  userId         String @map("user_id") @db.Uuid
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plannedModules PlannedModule[]
 
   @@map("semesters")
 }
@@ -75,9 +77,9 @@ model PlannedModule {
   actualGrade     String?             @map("actual_grade")
   selectedLessons Json?               @map("selected_lessons")
 
-  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  semester        Semester?           @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-  module          NusModule           @relation(fields: [moduleCode], references: [moduleCode], onDelete: Restrict)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  semester Semester? @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  module   NusModule @relation(fields: [moduleCode], references: [moduleCode], onDelete: Restrict)
 
   @@index([userId])
   @@index([status])
@@ -94,41 +96,41 @@ model ModuleReview {
   id         String   @id @default(uuid()) @db.Uuid
   userId     String   @map("user_id") @db.Uuid
   moduleCode String   @map("module_code")
-  rating     Int      // 1-10 scale
+  rating     Int // 1-10 scale
   content    String   @db.Text
   createdAt  DateTime @default(now()) @map("created_at")
 
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  module     NusModule @relation(fields: [moduleCode], references: [moduleCode], onDelete: Cascade)
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module NusModule @relation(fields: [moduleCode], references: [moduleCode], onDelete: Cascade)
 
   @@map("module_reviews")
 }
 
 model PublicPlan {
-  id            String       @id @default(uuid()) @db.Uuid
-  authorId      String       @map("author_id") @db.Uuid
-  title         String
-  description   String?      @db.Text
-  planSnapshot  Json         @map("plan_snapshot") // Stores the frozen state of the user's semesters
-  upvotes       Int          @default(0)
-  createdAt     DateTime     @default(now()) @map("created_at")
+  id           String   @id @default(uuid()) @db.Uuid
+  authorId     String   @map("author_id") @db.Uuid
+  title        String
+  description  String?  @db.Text
+  planSnapshot Json     @map("plan_snapshot") // Stores the frozen state of the user's semesters
+  upvotes      Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  author        User         @relation("AuthoredPlans", fields: [authorId], references: [id], onDelete: Cascade)
-  reviews       PlanReview[]
+  author  User         @relation("AuthoredPlans", fields: [authorId], references: [id], onDelete: Cascade)
+  reviews PlanReview[]
 
   @@map("public_plans")
 }
 
 model PlanReview {
-  id            String     @id @default(uuid()) @db.Uuid
-  userId        String     @map("user_id") @db.Uuid
-  publicPlanId  String     @map("public_plan_id") @db.Uuid
-  rating        Int        // 1-10 scale
-  content       String     @db.Text
-  createdAt     DateTime   @default(now()) @map("created_at")
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  publicPlanId String   @map("public_plan_id") @db.Uuid
+  rating       Int // 1-10 scale
+  content      String   @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  publicPlan    PublicPlan @relation(fields: [publicPlanId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publicPlan PublicPlan @relation(fields: [publicPlanId], references: [id], onDelete: Cascade)
 
   @@map("plan_reviews")
 }

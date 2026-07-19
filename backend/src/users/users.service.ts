@@ -30,4 +30,27 @@ export class UsersService {
       data,
     });
   }
+
+  async updateUserIfAcademicProfileAllowed(
+    id: string,
+    now: Date,
+    data: Prisma.UserUpdateInput,
+  ): Promise<User | null> {
+    const result = await this.prisma.user.updateMany({
+      where: {
+        id,
+        OR: [
+          { academicProfileChangeAllowedAt: null },
+          { academicProfileChangeAllowedAt: { lte: now } },
+        ],
+      },
+      data,
+    });
+
+    if (result.count === 0) {
+      return null;
+    }
+
+    return this.findUserById(id);
+  }
 }

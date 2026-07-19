@@ -1,12 +1,11 @@
 import {
   BadGatewayException,
-  BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { OpenAiGateway } from '../ai/openai.gateway';
 import type { DegreeRequirementsResponse } from '../shared/types';
-import type { RequirementAuditResponse } from '../shared/types';
 import { UsersService } from '../users/users.service';
 import {
   degreeRequirementsPromptVersion,
@@ -15,41 +14,55 @@ import {
 import {
   buildDegreeRequirementsInput,
   degreeRequirementsInstructions,
+  type DegreeRequirementsPromptContext,
 } from './prompts/degree-requirements.prompt';
-import { degreeRequirementsModelOutputSchema } from './schemas/degree-requirements.schema';
-import { RequirementAuditService } from './requirement-audit.service';
+import {
+  degreeRequirementsModelOutputSchema,
+  degreeRequirementsResponseSchema,
+} from './schemas/degree-requirements.schema';
 
 @Injectable()
 export class AiPlannerService {
   constructor(
     private readonly usersService: UsersService,
     private readonly openAiGateway: OpenAiGateway,
-    private readonly requirementAuditService: RequirementAuditService,
   ) {}
 
-  async researchDegreeRequirements(
+  async getStoredDegreeRequirements(
     userId: string,
-  ): Promise<DegreeRequirementsResponse> {
+  ): Promise<DegreeRequirementsResponse | null> {
     const user = await this.usersService.findUserById(userId);
 
     if (!user) {
       throw new NotFoundException('User profile was not found');
     }
 
-    if (!user.faculty || !user.degree || !user.matriculationYear) {
-      throw new BadRequestException(
-        'Complete faculty, major, and matriculation year in Settings before using the AI Planner',
+    if (user.graduationRequirements === null) {
+      return null;
+    }
+
+    const storedRequirements = degreeRequirementsResponseSchema.safeParse(
+      user.graduationRequirements,
+    );
+
+    if (!storedRequirements.success) {
+      throw new InternalServerErrorException(
+        'Stored graduation requirements are invalid',
       );
     }
 
-    const academicYear = `AY${user.matriculationYear}/${user.matriculationYear + 1}`;
+    return storedRequirements.data;
+  }
+
+  async generateDegreeRequirements(
+    context: Omit<DegreeRequirementsPromptContext, 'academicYear'>,
+  ): Promise<DegreeRequirementsResponse> {
+    const academicYear = `AY${context.matriculationYear}/${context.matriculationYear + 1}`;
     const result = await this.openAiGateway.runStructuredWebSearch({
       instructions: degreeRequirementsInstructions,
       input: buildDegreeRequirementsInput({
+        ...context,
         academicYear,
-        degree: user.degree,
-        faculty: user.faculty,
-        matriculationYear: user.matriculationYear,
       }),
       promptVersion: degreeRequirementsPromptVersion,
       schema: degreeRequirementsModelOutputSchema,
@@ -63,9 +76,9 @@ export class AiPlannerService {
     }
 
     return {
-      faculty: user.faculty,
-      degree: user.degree,
-      matriculationYear: user.matriculationYear,
+      faculty: context.faculty,
+      degree: context.degree,
+      matriculationYear: context.matriculationYear,
       academicYear,
       coreRequirements: result.data.coreRequirements,
       electiveBuckets: result.data.electiveBuckets,
@@ -73,13 +86,5 @@ export class AiPlannerService {
       generatedAt: new Date().toISOString(),
       promptVersion: degreeRequirementsPromptVersion,
     };
-  }
-
-  async auditDegreeRequirements(
-    userId: string,
-  ): Promise<RequirementAuditResponse> {
-    const degreeRequirements = await this.researchDegreeRequirements(userId);
-
-    return this.requirementAuditService.audit(userId, degreeRequirements);
   }
 }

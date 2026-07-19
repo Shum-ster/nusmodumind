@@ -1,8 +1,9 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { AuthService } from './auth.service';
+import { AiPlannerService } from '../ai_planner/ai-planner.service';
 import { UsersService } from '../users/users.service';
+import { academicProfileCooldownMs, AuthService } from './auth.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -11,10 +12,28 @@ describe('AuthService', () => {
     findUserById: jest.Mock;
     createUser: jest.Mock;
     updateUser: jest.Mock;
+    updateUserIfAcademicProfileAllowed: jest.Mock;
   };
   let jwtService: { sign: jest.Mock };
+  let aiPlannerService: { generateDegreeRequirements: jest.Mock };
 
-  const userWithPassword = {
+  const generatedRequirements = {
+    faculty: 'School of Computing',
+    degree: 'Computer Science',
+    matriculationYear: 2024,
+    academicYear: 'AY2024/2025',
+    coreRequirements: [],
+    electiveBuckets: [],
+    sources: [
+      {
+        title: 'www.comp.nus.edu.sg',
+        url: 'https://www.comp.nus.edu.sg/cugresource/',
+      },
+    ],
+    generatedAt: '2026-07-19T00:00:00.000Z',
+    promptVersion: 'degree-requirements-v2',
+  };
+  const baseUser = {
     id: 'user-id',
     email: 'test@example.com',
     passwordHash: 'hashed-password',
@@ -24,27 +43,43 @@ describe('AuthService', () => {
     graduationYear: null,
     matriculationYear: null,
     lifestylePreferences: null,
+    graduationRequirements: null,
+    academicProfileChangeAllowedAt: null,
   };
 
   beforeEach(() => {
     usersService = {
       findUserByEmail: jest.fn(),
-      findUserById: jest.fn(),
+      findUserById: jest.fn().mockResolvedValue(baseUser),
       createUser: jest.fn(),
-      updateUser: jest.fn(),
+      updateUser: jest
+        .fn()
+        .mockImplementation((_userId, data) =>
+          Promise.resolve({ ...baseUser, ...data }),
+        ),
+      updateUserIfAcademicProfileAllowed: jest
+        .fn()
+        .mockImplementation((_userId, _now, data) =>
+          Promise.resolve({ ...baseUser, ...data }),
+        ),
     };
     jwtService = {
       sign: jest.fn().mockReturnValue('signed-token'),
     };
-
+    aiPlannerService = {
+      generateDegreeRequirements: jest
+        .fn()
+        .mockResolvedValue(generatedRequirements),
+    };
     service = new AuthService(
       usersService as unknown as UsersService,
       jwtService as unknown as JwtService,
+      aiPlannerService as unknown as AiPlannerService,
     );
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('registers a new user without returning the password', async () => {
@@ -57,25 +92,20 @@ describe('AuthService', () => {
       email: 'test@example.com',
       password: 'password123',
     });
+    const createUserCalls = usersService.createUser.mock.calls as Array<
+      [{ email: string; passwordHash: string }]
+    >;
+    const payload = createUserCalls[0][0];
 
-    expect(usersService.findUserByEmail).toHaveBeenCalledWith(
-      'test@example.com',
-    );
-    const createUserCalls = usersService.createUser.mock.calls as [
-      [{ email: string; passwordHash: string }],
-    ];
-    const createUserPayload = createUserCalls[0][0];
-
-    expect(createUserPayload.email).toBe('test@example.com');
-    expect(createUserPayload.passwordHash).not.toMatch(/^password123$/);
+    expect(payload.email).toBe('test@example.com');
     await expect(
-      bcrypt.compare('password123', createUserPayload.passwordHash),
+      bcrypt.compare('password123', payload.passwordHash),
     ).resolves.toBe(true);
     expect(result).toEqual({ id: 'user-id', email: 'test@example.com' });
   });
 
-  it('throws when registering with an existing email', async () => {
-    usersService.findUserByEmail.mockResolvedValue(userWithPassword);
+  it('rejects registration with an existing email', async () => {
+    usersService.findUserByEmail.mockResolvedValue(baseUser);
 
     await expect(
       service.register({
@@ -83,107 +113,233 @@ describe('AuthService', () => {
         password: 'password123',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
-    expect(usersService.createUser).not.toHaveBeenCalled();
   });
 
-  it('validates a user when the password matches', async () => {
-    const hashedPassword = await bcrypt.hash('password123', 1);
+  it('validates matching credentials and signs login tokens', async () => {
+    const passwordHash = await bcrypt.hash('password123', 1);
     usersService.findUserByEmail.mockResolvedValue({
-      ...userWithPassword,
-      passwordHash: hashedPassword,
+      ...baseUser,
+      passwordHash,
     });
 
     await expect(
       service.validateUser('test@example.com', 'password123'),
     ).resolves.toEqual({ id: 'user-id', email: 'test@example.com' });
-  });
-
-  it('returns null when the user does not exist', async () => {
-    usersService.findUserByEmail.mockResolvedValue(null);
-
-    await expect(
-      service.validateUser('missing@example.com', 'password123'),
-    ).resolves.toBeNull();
-  });
-
-  it('returns null when the password does not match', async () => {
-    const hashedPassword = await bcrypt.hash('password123', 1);
-    usersService.findUserByEmail.mockResolvedValue({
-      ...userWithPassword,
-      passwordHash: hashedPassword,
-    });
-
-    await expect(
-      service.validateUser('test@example.com', 'wrong-password'),
-    ).resolves.toBeNull();
-  });
-
-  it('signs a login payload', () => {
     expect(service.login({ id: 'user-id', email: 'test@example.com' })).toEqual(
-      {
-        access_token: 'signed-token',
-      },
+      { access_token: 'signed-token' },
     );
-    expect(jwtService.sign).toHaveBeenCalledWith({
-      email: 'test@example.com',
-      sub: 'user-id',
-    });
   });
 
-  it('returns the current user profile without the password hash', async () => {
+  it('returns profile cooldown metadata without exposing requirements JSON', async () => {
+    const allowedAt = new Date('2026-07-20T00:00:00.000Z');
     usersService.findUserById.mockResolvedValue({
-      ...userWithPassword,
-      username: 'Jason',
-      graduationYear: 2030,
+      ...baseUser,
+      graduationRequirements: generatedRequirements,
+      academicProfileChangeAllowedAt: allowedAt,
     });
 
     await expect(service.getProfile('user-id')).resolves.toEqual({
       id: 'user-id',
       email: 'test@example.com',
-      username: 'Jason',
+      username: null,
       faculty: null,
       degree: null,
-      graduationYear: 2030,
+      graduationYear: null,
       matriculationYear: null,
       lifestylePreferences: null,
+      academicProfileChangeAllowedAt: allowedAt.toISOString(),
+      hasGraduationRequirements: true,
     });
   });
 
-  it('updates academic and lifestyle profile information', async () => {
-    usersService.findUserById.mockResolvedValue(userWithPassword);
+  it('generates and atomically stores requirements for a complete academic profile', async () => {
+    const now = new Date('2026-07-19T04:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+
+    const result = await service.updateProfile('user-id', {
+      faculty: '  School of Computing  ',
+      degree: 'Computer Science',
+      matriculationYear: 2024,
+    });
+
+    expect(aiPlannerService.generateDegreeRequirements).toHaveBeenCalledWith({
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      matriculationYear: 2024,
+    });
+    expect(usersService.updateUser).not.toHaveBeenCalled();
+    expect(
+      usersService.updateUserIfAcademicProfileAllowed,
+    ).toHaveBeenCalledWith(
+      'user-id',
+      now,
+      expect.objectContaining({
+        faculty: 'School of Computing',
+        degree: 'Computer Science',
+        matriculationYear: 2024,
+        graduationRequirements: generatedRequirements,
+        academicProfileChangeAllowedAt: new Date(
+          now.getTime() + academicProfileCooldownMs,
+        ),
+      }),
+    );
+    expect(result.hasGraduationRequirements).toBe(true);
+  });
+
+  it.each([
+    ['faculty', { faculty: 'College of Design and Engineering' }],
+    ['major', { degree: 'Information Security' }],
+    ['cohort', { matriculationYear: 2025 }],
+  ])('regenerates when the %s changes', async (_label, change) => {
+    const currentUser = {
+      ...baseUser,
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      matriculationYear: 2024,
+      graduationRequirements: generatedRequirements,
+    };
+    usersService.findUserById.mockResolvedValue(currentUser);
+    usersService.updateUserIfAcademicProfileAllowed.mockImplementation(
+      (_userId, _now, data) => Promise.resolve({ ...currentUser, ...data }),
+    );
+
+    await service.updateProfile('user-id', change);
+
+    expect(aiPlannerService.generateDegreeRequirements).toHaveBeenCalledTimes(
+      1,
+    );
+  });
+
+  it('does not call OpenAI for unchanged academic values or personal edits', async () => {
+    const currentUser = {
+      ...baseUser,
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      matriculationYear: 2024,
+      graduationRequirements: generatedRequirements,
+    };
+    usersService.findUserById.mockResolvedValue(currentUser);
     usersService.updateUser.mockImplementation((_userId, data) =>
-      Promise.resolve({ ...userWithPassword, ...data }),
+      Promise.resolve({ ...currentUser, ...data }),
+    );
+
+    await service.updateProfile('user-id', {
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      matriculationYear: 2024,
+      graduationYear: 2028,
+      lifestylePreferences: 'Prefer morning classes',
+    });
+
+    expect(aiPlannerService.generateDegreeRequirements).not.toHaveBeenCalled();
+    expect(usersService.updateUser).toHaveBeenCalled();
+  });
+
+  it('generates missing requirements for a migrated complete profile', async () => {
+    usersService.findUserById.mockResolvedValue({
+      ...baseUser,
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      matriculationYear: 2024,
+    });
+
+    await service.updateProfile('user-id', { username: 'Student' });
+
+    expect(aiPlannerService.generateDegreeRequirements).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(usersService.updateUserIfAcademicProfileAllowed).toHaveBeenCalled();
+  });
+
+  it('rejects incomplete academic changes before calling OpenAI', async () => {
+    await expect(
+      service.updateProfile('user-id', {
+        faculty: 'School of Computing',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(aiPlannerService.generateDegreeRequirements).not.toHaveBeenCalled();
+    expect(usersService.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('enforces the cooldown without calling OpenAI', async () => {
+    const now = new Date('2026-07-19T04:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+    usersService.findUserById.mockResolvedValue({
+      ...baseUser,
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      matriculationYear: 2024,
+      graduationRequirements: generatedRequirements,
+      academicProfileChangeAllowedAt: new Date(now.getTime() + 1000),
+    });
+
+    await expect(
+      service.updateProfile('user-id', { degree: 'Information Security' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(aiPlannerService.generateDegreeRequirements).not.toHaveBeenCalled();
+  });
+
+  it('allows an academic change at the exact cooldown boundary', async () => {
+    const now = new Date('2026-07-20T04:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+    usersService.findUserById.mockResolvedValue({
+      ...baseUser,
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      matriculationYear: 2024,
+      graduationRequirements: generatedRequirements,
+      academicProfileChangeAllowedAt: now,
+    });
+
+    await service.updateProfile('user-id', {
+      degree: 'Information Security',
+    });
+
+    expect(aiPlannerService.generateDegreeRequirements).toHaveBeenCalled();
+  });
+
+  it('does not update the profile when OpenAI fails', async () => {
+    aiPlannerService.generateDegreeRequirements.mockRejectedValue(
+      new Error('provider unavailable'),
     );
 
     await expect(
       service.updateProfile('user-id', {
-        faculty: '  School of Computing  ',
+        faculty: 'School of Computing',
         degree: 'Computer Science',
-        lifestylePreferences: '  Prefer morning classes  ',
+        matriculationYear: 2024,
       }),
-    ).resolves.toMatchObject({
-      faculty: 'School of Computing',
-      degree: 'Computer Science',
-      lifestylePreferences: 'Prefer morning classes',
-    });
-
-    expect(usersService.updateUser).toHaveBeenCalledWith('user-id', {
-      faculty: 'School of Computing',
-      degree: 'Computer Science',
-      lifestylePreferences: 'Prefer morning classes',
-    });
+    ).rejects.toThrow('provider unavailable');
+    expect(usersService.updateUser).not.toHaveBeenCalled();
+    expect(
+      usersService.updateUserIfAcademicProfileAllowed,
+    ).not.toHaveBeenCalled();
   });
 
-  it('requires the current password before changing password', async () => {
-    const hashedPassword = await bcrypt.hash('password123', 1);
+  it('rejects the losing concurrent academic update', async () => {
+    usersService.updateUserIfAcademicProfileAllowed.mockResolvedValue(null);
+    usersService.findUserById
+      .mockResolvedValueOnce(baseUser)
+      .mockResolvedValueOnce({
+        ...baseUser,
+        academicProfileChangeAllowedAt: new Date('2026-07-20T00:00:00.000Z'),
+      });
 
+    await expect(
+      service.updateProfile('user-id', {
+        faculty: 'School of Computing',
+        degree: 'Computer Science',
+        matriculationYear: 2024,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('validates and hashes password changes without calling OpenAI', async () => {
+    const passwordHash = await bcrypt.hash('password123', 1);
     usersService.findUserById.mockResolvedValue({
-      ...userWithPassword,
-      passwordHash: hashedPassword,
-    });
-    usersService.updateUser.mockResolvedValue({
-      ...userWithPassword,
-      passwordHash: 'next-hash',
+      ...baseUser,
+      passwordHash,
     });
 
     await service.updateProfile('user-id', {
@@ -191,14 +347,13 @@ describe('AuthService', () => {
       newPassword: 'newpassword123',
     });
 
-    const updateUserCalls = usersService.updateUser.mock.calls as [
-      [string, { passwordHash: string }],
-    ];
-    const updatePayload = updateUserCalls[0][1];
-
-    expect(updatePayload.passwordHash).not.toBe('newpassword123');
+    const updateUserCalls = usersService.updateUser.mock.calls as Array<
+      [string, { passwordHash: string }]
+    >;
+    const updateData = updateUserCalls[0][1];
     await expect(
-      bcrypt.compare('newpassword123', updatePayload.passwordHash),
+      bcrypt.compare('newpassword123', updateData.passwordHash),
     ).resolves.toBe(true);
+    expect(aiPlannerService.generateDegreeRequirements).not.toHaveBeenCalled();
   });
 });

@@ -1,17 +1,17 @@
 export type CoreRequirementKind =
-  | 'CORE'
-  | 'COMMON_CURRICULUM'
-  | 'INTERNSHIP'
-  | 'PROJECT'
-  | 'OTHER';
+  | "CORE"
+  | "COMMON_CURRICULUM"
+  | "INTERNSHIP"
+  | "PROJECT"
+  | "OTHER";
 
 export type ElectiveRequirementKind =
-  | 'COMMON_CURRICULUM'
-  | 'MAJOR_ELECTIVE'
-  | 'INTERNSHIP'
-  | 'PROJECT'
-  | 'UNRESTRICTED'
-  | 'OTHER';
+  | "COMMON_CURRICULUM"
+  | "MAJOR_ELECTIVE"
+  | "INTERNSHIP"
+  | "PROJECT"
+  | "UNRESTRICTED"
+  | "OTHER";
 
 export type CoreRequirement = {
   requirementId: string;
@@ -54,45 +54,5 @@ export type DegreeRequirementsResponse = {
     url: string;
   }>;
   generatedAt: string;
-  promptVersion: 'degree-requirements-v2';
-};
-
-export type RequirementAuditStatus =
-  | 'CLEARED'
-  | 'COVERED_BY_PLAN'
-  | 'PARTIAL'
-  | 'UNPLANNED'
-  | 'NEEDS_REVIEW';
-
-export type RequirementAuditItem = {
-  requirementId: string;
-  name: string;
-  kind: CoreRequirementKind | ElectiveRequirementKind;
-  status: RequirementAuditStatus;
-  completedModuleCodes: string[];
-  plannedModuleCodes: string[];
-  selectedCandidateModuleCodes: string[];
-  missingRequiredModuleCodes: string[];
-  remainingUnits: number | null;
-  remainingCourses: number | null;
-  eligibleModuleCodes: string[];
-  explanation: string;
-};
-
-export type RequirementAuditResponse = {
-  academicYear: string;
-  summary: {
-    clearedRequirements: number;
-    coveredRequirements: number;
-    unplannedRequirements: number;
-    needsReviewRequirements: number;
-  };
-  requirements: RequirementAuditItem[];
-  sources: Array<{
-    title: string;
-    url: string;
-  }>;
-  generatedAt: string;
-  promptVersion: 'degree-requirements-v2';
-  evaluatorVersion: 'requirement-audit-v1';
+  promptVersion: "degree-requirements-v2";
 };

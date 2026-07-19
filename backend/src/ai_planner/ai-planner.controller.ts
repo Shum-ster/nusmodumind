@@ -1,10 +1,9 @@
-import { Controller, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type {
   AuthenticatedUser,
   DegreeRequirementsResponse,
-  RequirementAuditResponse,
 } from '../shared/types';
 import { AiPlannerService } from './ai-planner.service';
 
@@ -13,18 +12,10 @@ export class AiPlannerController {
   constructor(private readonly aiPlannerService: AiPlannerService) {}
 
   @UseGuards(AuthGuard('jwt'))
-  @Post('degree-requirements')
-  researchDegreeRequirements(
+  @Get('degree-requirements')
+  getStoredDegreeRequirements(
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<DegreeRequirementsResponse> {
-    return this.aiPlannerService.researchDegreeRequirements(user.id);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Post('requirement-audit')
-  auditDegreeRequirements(
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<RequirementAuditResponse> {
-    return this.aiPlannerService.auditDegreeRequirements(user.id);
+  ): Promise<DegreeRequirementsResponse | null> {
+    return this.aiPlannerService.getStoredDegreeRequirements(user.id);
   }
 }

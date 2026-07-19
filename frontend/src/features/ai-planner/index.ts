@@ -1,8 +1,2 @@
-export {
-  auditDegreeRequirements,
-  researchDegreeRequirements,
-} from './ai-planner-api';
-export type {
-  DegreeRequirementsResponse,
-  RequirementAuditResponse,
-} from '@/shared/types';
+export { getDegreeRequirements } from "./ai-planner-api";
+export type { DegreeRequirementsResponse } from "@/shared/types";

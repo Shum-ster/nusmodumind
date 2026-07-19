@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { KeyRound, Save, UserRound } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
-import { popularChoiceFaculties } from '@/features/popular-choices/popularChoicesData';
-import { useUserProfile } from '@/features/user';
+import { KeyRound, Save, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import { popularChoiceFaculties } from "@/features/popular-choices/popularChoicesData";
+import { useUserProfile } from "@/features/user";
 
 const minimumProfileYear = 1900;
 const maximumProfileYear = 2100;
@@ -29,7 +29,7 @@ function isInvalidProfileYear(value: number | null) {
 
 function getFacultyId(storedFaculty: string | null) {
   if (!storedFaculty) {
-    return '';
+    return "";
   }
 
   return (
@@ -39,22 +39,22 @@ function getFacultyId(storedFaculty: string | null) {
         faculty.title === storedFaculty ||
         faculty.previousIds?.includes(storedFaculty) ||
         faculty.previousTitles?.includes(storedFaculty),
-    )?.id ?? ''
+    )?.id ?? ""
   );
 }
 
 export function SettingsPage() {
   const { isLoadingProfile, profile, profileError, updateProfile } =
     useUserProfile();
-  const [username, setUsername] = useState('');
-  const [graduationYear, setGraduationYear] = useState('');
-  const [matriculationYear, setMatriculationYear] = useState('');
-  const [facultyId, setFacultyId] = useState('');
-  const [major, setMajor] = useState('');
-  const [lifestylePreferences, setLifestylePreferences] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [graduationYear, setGraduationYear] = useState("");
+  const [matriculationYear, setMatriculationYear] = useState("");
+  const [facultyId, setFacultyId] = useState("");
+  const [major, setMajor] = useState("");
+  const [lifestylePreferences, setLifestylePreferences] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
   const [profileSubmitError, setProfileSubmitError] = useState<string | null>(
     null,
@@ -65,6 +65,15 @@ export function SettingsPage() {
   );
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [isGeneratingRequirements, setIsGeneratingRequirements] =
+    useState(false);
+  const [cooldownTime, setCooldownTime] = useState(() => Date.now());
+  const academicProfileChangeAllowedAt = profile?.academicProfileChangeAllowedAt
+    ? Date.parse(profile.academicProfileChangeAllowedAt)
+    : Number.NaN;
+  const isAcademicProfileLocked =
+    Number.isFinite(academicProfileChangeAllowedAt) &&
+    academicProfileChangeAllowedAt > cooldownTime;
 
   useEffect(() => {
     let ignoreUpdate = false;
@@ -80,12 +89,12 @@ export function SettingsPage() {
         return;
       }
 
-      setUsername(profile.username ?? '');
+      setUsername(profile.username ?? "");
       setGraduationYear(
-        profile.graduationYear ? String(profile.graduationYear) : '',
+        profile.graduationYear ? String(profile.graduationYear) : "",
       );
       setMatriculationYear(
-        profile.matriculationYear ? String(profile.matriculationYear) : '',
+        profile.matriculationYear ? String(profile.matriculationYear) : "",
       );
       const nextFacultyId = getFacultyId(profile.faculty);
       const nextFaculty = popularChoiceFaculties.find(
@@ -97,14 +106,27 @@ export function SettingsPage() {
       );
 
       setFacultyId(nextFacultyId);
-      setMajor(nextMajor?.title ?? '');
-      setLifestylePreferences(profile.lifestylePreferences ?? '');
+      setMajor(nextMajor?.title ?? "");
+      setLifestylePreferences(profile.lifestylePreferences ?? "");
     });
 
     return () => {
       ignoreUpdate = true;
     };
   }, [profile]);
+
+  useEffect(() => {
+    if (!isAcademicProfileLocked) {
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      () => setCooldownTime(Date.now()),
+      Math.max(0, academicProfileChangeAllowedAt - Date.now() + 100),
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [academicProfileChangeAllowedAt, isAcademicProfileLocked]);
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -116,14 +138,14 @@ export function SettingsPage() {
 
     if (isInvalidProfileYear(parsedGraduationYear)) {
       setProfileSubmitError(
-        'Graduation year must be a valid year between 1900 and 2100.',
+        "Graduation year must be a valid year between 1900 and 2100.",
       );
       return;
     }
 
     if (isInvalidProfileYear(parsedMatriculationYear)) {
       setProfileSubmitError(
-        'Matriculation year must be a valid year between 1900 and 2100.',
+        "Matriculation year must be a valid year between 1900 and 2100.",
       );
       return;
     }
@@ -134,24 +156,40 @@ export function SettingsPage() {
       const selectedFaculty = popularChoiceFaculties.find(
         (faculty) => faculty.id === facultyId,
       );
+      const selectedFacultyTitle = selectedFaculty?.title ?? null;
+      const selectedMajor = major || null;
+      const hasCompleteAcademicIdentity =
+        Boolean(selectedFacultyTitle) &&
+        Boolean(selectedMajor) &&
+        parsedMatriculationYear !== null;
+      const academicIdentityChanged =
+        selectedFacultyTitle !== profile?.faculty ||
+        selectedMajor !== profile?.degree ||
+        parsedMatriculationYear !== profile?.matriculationYear;
+
+      setIsGeneratingRequirements(
+        hasCompleteAcademicIdentity &&
+          (academicIdentityChanged || !profile?.hasGraduationRequirements),
+      );
 
       await updateProfile({
-        degree: major || null,
-        faculty: selectedFaculty?.title ?? null,
+        degree: selectedMajor,
+        faculty: selectedFacultyTitle,
         graduationYear: parsedGraduationYear,
         matriculationYear: parsedMatriculationYear,
         lifestylePreferences: lifestylePreferences.trim() || null,
         username: username.trim() || null,
       });
-      setProfileStatus('Personal information updated.');
+      setProfileStatus("Personal information updated.");
     } catch (error) {
       setProfileSubmitError(
         error instanceof Error
           ? error.message
-          : 'Unable to update personal information.',
+          : "Unable to update personal information.",
       );
     } finally {
       setIsSavingProfile(false);
+      setIsGeneratingRequirements(false);
     }
   }
 
@@ -161,19 +199,19 @@ export function SettingsPage() {
     setPasswordSubmitError(null);
 
     if (!currentPassword || !newPassword) {
-      setPasswordSubmitError('Current password and new password are required.');
+      setPasswordSubmitError("Current password and new password are required.");
       return;
     }
 
     if (newPassword.length < 6) {
       setPasswordSubmitError(
-        'New password must be at least 6 characters long.',
+        "New password must be at least 6 characters long.",
       );
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordSubmitError('New password and confirmation must match.');
+      setPasswordSubmitError("New password and confirmation must match.");
       return;
     }
 
@@ -184,13 +222,13 @@ export function SettingsPage() {
         currentPassword,
         newPassword,
       });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPasswordStatus('Password updated.');
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordStatus("Password updated.");
     } catch (error) {
       setPasswordSubmitError(
-        error instanceof Error ? error.message : 'Unable to update password.',
+        error instanceof Error ? error.message : "Unable to update password.",
       );
     } finally {
       setIsSavingPassword(false);
@@ -209,7 +247,7 @@ export function SettingsPage() {
           </div>
 
           <div className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
-            {profile?.email ?? 'Account'}
+            {profile?.email ?? "Account"}
           </div>
         </div>
       </section>
@@ -266,7 +304,9 @@ export function SettingsPage() {
                 min={minimumProfileYear}
                 max={maximumProfileYear}
                 onChange={(event) => setMatriculationYear(event.target.value)}
-                disabled={isLoadingProfile || isSavingProfile}
+                disabled={
+                  isAcademicProfileLocked || isLoadingProfile || isSavingProfile
+                }
                 className="h-11 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-200 disabled:bg-gray-100"
               />
             </label>
@@ -277,9 +317,11 @@ export function SettingsPage() {
                 value={facultyId}
                 onChange={(event) => {
                   setFacultyId(event.target.value);
-                  setMajor('');
+                  setMajor("");
                 }}
-                disabled={isLoadingProfile || isSavingProfile}
+                disabled={
+                  isAcademicProfileLocked || isLoadingProfile || isSavingProfile
+                }
                 className="h-11 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-200 disabled:bg-gray-100"
               >
                 <option value="">Select faculty</option>
@@ -297,12 +339,15 @@ export function SettingsPage() {
                 value={major}
                 onChange={(event) => setMajor(event.target.value)}
                 disabled={
-                  !facultyId || isLoadingProfile || isSavingProfile
+                  !facultyId ||
+                  isAcademicProfileLocked ||
+                  isLoadingProfile ||
+                  isSavingProfile
                 }
                 className="h-11 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-200 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
               >
                 <option value="">
-                  {facultyId ? 'Select major' : 'Select a faculty first'}
+                  {facultyId ? "Select major" : "Select a faculty first"}
                 </option>
                 {popularChoiceFaculties
                   .find((faculty) => faculty.id === facultyId)
@@ -313,6 +358,13 @@ export function SettingsPage() {
                   ))}
               </select>
             </label>
+
+            {isAcademicProfileLocked ? (
+              <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                Faculty, major, and matriculation year can be changed again{" "}
+                {new Date(academicProfileChangeAllowedAt).toLocaleString()}.
+              </p>
+            ) : null}
 
             <label className="grid gap-2 text-sm font-bold text-gray-700">
               Lifestyle Preferences
@@ -347,7 +399,11 @@ export function SettingsPage() {
               className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-orange-600 px-4 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-wait disabled:bg-gray-300"
             >
               <Save className="h-4 w-4" />
-              {isSavingProfile ? 'Saving...' : 'Save Information'}
+              {isGeneratingRequirements
+                ? "Researching requirements..."
+                : isSavingProfile
+                  ? "Saving..."
+                  : "Save Information"}
             </button>
           </div>
         </form>
@@ -416,7 +472,7 @@ export function SettingsPage() {
               className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-orange-600 px-4 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-wait disabled:bg-gray-300"
             >
               <Save className="h-4 w-4" />
-              {isSavingPassword ? 'Saving...' : 'Change Password'}
+              {isSavingPassword ? "Saving..." : "Change Password"}
             </button>
           </div>
         </form>

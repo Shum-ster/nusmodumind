@@ -22,6 +22,8 @@ describe('AuthController', () => {
     graduationYear: 2030,
     matriculationYear: 2026,
     lifestylePreferences: null,
+    academicProfileChangeAllowedAt: null,
+    hasGraduationRequirements: false,
   };
 
   beforeEach(async () => {

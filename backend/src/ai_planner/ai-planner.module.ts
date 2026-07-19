@@ -1,14 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AiModule } from '../ai/ai.module';
 import { UsersModule } from '../users/users.module';
-import { PrismaModule } from '../prisma/prisma.module';
 import { AiPlannerController } from './ai-planner.controller';
 import { AiPlannerService } from './ai-planner.service';
-import { RequirementAuditService } from './requirement-audit.service';
 
 @Module({
-  imports: [AiModule, PrismaModule, UsersModule],
+  imports: [AiModule, UsersModule],
   controllers: [AiPlannerController],
-  providers: [AiPlannerService, RequirementAuditService],
+  providers: [AiPlannerService],
+  exports: [AiPlannerService],
 })
 export class AiPlannerModule {}

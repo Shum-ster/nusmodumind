@@ -16,6 +16,8 @@ export type UserProfile = {
   graduationYear: number | null;
   matriculationYear: number | null;
   lifestylePreferences: string | null;
+  academicProfileChangeAllowedAt: string | null;
+  hasGraduationRequirements: boolean;
 };
 
 export type UpdateUserProfileBody = {
