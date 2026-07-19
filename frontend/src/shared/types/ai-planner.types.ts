@@ -1,25 +1,98 @@
+export type CoreRequirementKind =
+  | 'CORE'
+  | 'COMMON_CURRICULUM'
+  | 'INTERNSHIP'
+  | 'PROJECT'
+  | 'OTHER';
+
+export type ElectiveRequirementKind =
+  | 'COMMON_CURRICULUM'
+  | 'MAJOR_ELECTIVE'
+  | 'INTERNSHIP'
+  | 'PROJECT'
+  | 'UNRESTRICTED'
+  | 'OTHER';
+
+export type CoreRequirement = {
+  requirementId: string;
+  name: string;
+  kind: CoreRequirementKind;
+  moduleCodes: string[];
+  minimumCourses: number;
+  units: number | null;
+  notes: string | null;
+  allowsDoubleCounting: boolean;
+  manualReviewReason: string | null;
+};
+
+export type ElectiveBucket = {
+  requirementId: string;
+  name: string;
+  kind: ElectiveRequirementKind;
+  minimumUnits: number | null;
+  minimumCourses: number | null;
+  eligibleModuleCodes: string[];
+  eligibleModuleCodePatterns: string[];
+  allowsAnyModule: boolean;
+  minimumLevel: number | null;
+  maximumLevel: number | null;
+  excludedModuleCodes: string[];
+  allowsDoubleCounting: boolean;
+  rules: string[];
+  manualReviewReason: string | null;
+};
+
 export type DegreeRequirementsResponse = {
   faculty: string;
   degree: string;
   matriculationYear: number;
   academicYear: string;
-  coreModules: Array<{
-    moduleCode: string;
-    title: string | null;
-    units: number | null;
-    notes: string | null;
-  }>;
-  electiveBuckets: Array<{
-    name: string;
-    minimumUnits: number | null;
-    minimumCourses: number | null;
-    moduleCodes: string[];
-    rules: string[];
-  }>;
+  coreRequirements: CoreRequirement[];
+  electiveBuckets: ElectiveBucket[];
   sources: Array<{
     title: string;
     url: string;
   }>;
   generatedAt: string;
-  promptVersion: 'degree-requirements-v1';
+  promptVersion: 'degree-requirements-v2';
+};
+
+export type RequirementAuditStatus =
+  | 'CLEARED'
+  | 'COVERED_BY_PLAN'
+  | 'PARTIAL'
+  | 'UNPLANNED'
+  | 'NEEDS_REVIEW';
+
+export type RequirementAuditItem = {
+  requirementId: string;
+  name: string;
+  kind: CoreRequirementKind | ElectiveRequirementKind;
+  status: RequirementAuditStatus;
+  completedModuleCodes: string[];
+  plannedModuleCodes: string[];
+  selectedCandidateModuleCodes: string[];
+  missingRequiredModuleCodes: string[];
+  remainingUnits: number | null;
+  remainingCourses: number | null;
+  eligibleModuleCodes: string[];
+  explanation: string;
+};
+
+export type RequirementAuditResponse = {
+  academicYear: string;
+  summary: {
+    clearedRequirements: number;
+    coveredRequirements: number;
+    unplannedRequirements: number;
+    needsReviewRequirements: number;
+  };
+  requirements: RequirementAuditItem[];
+  sources: Array<{
+    title: string;
+    url: string;
+  }>;
+  generatedAt: string;
+  promptVersion: 'degree-requirements-v2';
+  evaluatorVersion: 'requirement-audit-v1';
 };

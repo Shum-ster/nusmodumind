@@ -2,11 +2,13 @@ import { BadGatewayException, BadRequestException } from '@nestjs/common';
 import { OpenAiGateway } from '../ai/openai.gateway';
 import { UsersService } from '../users/users.service';
 import { AiPlannerService } from './ai-planner.service';
+import { RequirementAuditService } from './requirement-audit.service';
 
 describe('AiPlannerService', () => {
   let service: AiPlannerService;
   let usersService: { findUserById: jest.Mock };
   let openAiGateway: { runStructuredWebSearch: jest.Mock };
+  let requirementAuditService: { audit: jest.Mock };
 
   const user = {
     id: 'user-id',
@@ -21,21 +23,35 @@ describe('AiPlannerService', () => {
   };
 
   const modelOutput = {
-    coreModules: [
+    coreRequirements: [
       {
-        moduleCode: 'CS1010',
-        title: 'Programming Methodology',
+        requirementId: 'programming-methodology',
+        name: 'Programming Methodology',
+        kind: 'CORE',
+        moduleCodes: ['CS1010'],
+        minimumCourses: 1,
         units: 4,
         notes: null,
+        allowsDoubleCounting: false,
+        manualReviewReason: null,
       },
     ],
     electiveBuckets: [
       {
+        requirementId: 'computer-science-electives',
         name: 'Computer Science electives',
+        kind: 'MAJOR_ELECTIVE',
         minimumUnits: 20,
         minimumCourses: null,
-        moduleCodes: [],
+        eligibleModuleCodes: [],
+        eligibleModuleCodePatterns: ['CS3*', 'CS4*'],
+        allowsAnyModule: false,
+        minimumLevel: 3000,
+        maximumLevel: 4000,
+        excludedModuleCodes: [],
+        allowsDoubleCounting: false,
         rules: ['Complete at least 20 units from approved electives.'],
+        manualReviewReason: null,
       },
     ],
   };
@@ -56,9 +72,13 @@ describe('AiPlannerService', () => {
         ],
       }),
     };
+    requirementAuditService = {
+      audit: jest.fn(),
+    };
     service = new AiPlannerService(
       usersService as unknown as UsersService,
       openAiGateway as unknown as OpenAiGateway,
+      requirementAuditService as unknown as RequirementAuditService,
     );
   });
 
@@ -68,7 +88,7 @@ describe('AiPlannerService', () => {
     expect(usersService.findUserById).toHaveBeenCalledWith('user-id');
     expect(openAiGateway.runStructuredWebSearch).toHaveBeenCalledWith(
       expect.objectContaining({
-        promptVersion: 'degree-requirements-v1',
+        promptVersion: 'degree-requirements-v2',
         schemaName: 'degree_requirements',
       }),
     );
@@ -84,9 +104,9 @@ describe('AiPlannerService', () => {
       degree: 'Computer Science',
       matriculationYear: 2024,
       academicYear: 'AY2024/2025',
-      coreModules: modelOutput.coreModules,
+      coreRequirements: modelOutput.coreRequirements,
       electiveBuckets: modelOutput.electiveBuckets,
-      promptVersion: 'degree-requirements-v1',
+      promptVersion: 'degree-requirements-v2',
     });
     expect(Date.parse(result.generatedAt)).not.toBeNaN();
   });
@@ -115,5 +135,34 @@ describe('AiPlannerService', () => {
     await expect(
       service.researchDegreeRequirements('user-id'),
     ).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
+  it('retrieves requirements before running the deterministic audit', async () => {
+    const auditResponse = {
+      academicYear: 'AY2024/2025',
+      summary: {
+        clearedRequirements: 1,
+        coveredRequirements: 0,
+        unplannedRequirements: 0,
+        needsReviewRequirements: 0,
+      },
+      requirements: [],
+      sources: [],
+      generatedAt: '2026-07-17T00:00:00.000Z',
+      promptVersion: 'degree-requirements-v2',
+      evaluatorVersion: 'requirement-audit-v1',
+    };
+    requirementAuditService.audit.mockResolvedValue(auditResponse);
+
+    await expect(service.auditDegreeRequirements('user-id')).resolves.toEqual(
+      auditResponse,
+    );
+    expect(requirementAuditService.audit).toHaveBeenCalledWith(
+      'user-id',
+      expect.objectContaining({
+        academicYear: 'AY2024/2025',
+        promptVersion: 'degree-requirements-v2',
+      }),
+    );
   });
 });

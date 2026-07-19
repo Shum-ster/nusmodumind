@@ -4,6 +4,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type {
   AuthenticatedUser,
   DegreeRequirementsResponse,
+  RequirementAuditResponse,
 } from '../shared/types';
 import { AiPlannerService } from './ai-planner.service';
 
@@ -17,5 +18,13 @@ export class AiPlannerController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<DegreeRequirementsResponse> {
     return this.aiPlannerService.researchDegreeRequirements(user.id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('requirement-audit')
+  auditDegreeRequirements(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<RequirementAuditResponse> {
+    return this.aiPlannerService.auditDegreeRequirements(user.id);
   }
 }

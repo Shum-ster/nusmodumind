@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { OpenAiGateway } from '../ai/openai.gateway';
 import type { DegreeRequirementsResponse } from '../shared/types';
+import type { RequirementAuditResponse } from '../shared/types';
 import { UsersService } from '../users/users.service';
 import {
   degreeRequirementsPromptVersion,
@@ -16,12 +17,14 @@ import {
   degreeRequirementsInstructions,
 } from './prompts/degree-requirements.prompt';
 import { degreeRequirementsModelOutputSchema } from './schemas/degree-requirements.schema';
+import { RequirementAuditService } from './requirement-audit.service';
 
 @Injectable()
 export class AiPlannerService {
   constructor(
     private readonly usersService: UsersService,
     private readonly openAiGateway: OpenAiGateway,
+    private readonly requirementAuditService: RequirementAuditService,
   ) {}
 
   async researchDegreeRequirements(
@@ -64,11 +67,19 @@ export class AiPlannerService {
       degree: user.degree,
       matriculationYear: user.matriculationYear,
       academicYear,
-      coreModules: result.data.coreModules,
+      coreRequirements: result.data.coreRequirements,
       electiveBuckets: result.data.electiveBuckets,
       sources: result.sources,
       generatedAt: new Date().toISOString(),
       promptVersion: degreeRequirementsPromptVersion,
     };
+  }
+
+  async auditDegreeRequirements(
+    userId: string,
+  ): Promise<RequirementAuditResponse> {
+    const degreeRequirements = await this.researchDegreeRequirements(userId);
+
+    return this.requirementAuditService.audit(userId, degreeRequirements);
   }
 }
