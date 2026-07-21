@@ -2,12 +2,15 @@ import { apiRequest, createApiUrl } from "@/shared/api";
 import type { DegreeRequirementsResponse } from "@/shared/types";
 
 type GeneralPromptStreamOptions = {
+  mode: AiPlannerPromptMode;
   onDelta: (text: string) => void;
   onDone?: () => void;
   prompt: string;
   signal?: AbortSignal;
   token: string;
 };
+
+export type AiPlannerPromptMode = "chat" | "recommend_modules";
 
 type GeneralPromptSseEvent =
   | { event: "delta"; data: { text: string } }
@@ -22,6 +25,7 @@ export function getDegreeRequirements(token: string) {
 }
 
 export async function streamGeneralPrompt({
+  mode,
   onDelta,
   onDone,
   prompt,
@@ -35,7 +39,7 @@ export async function streamGeneralPrompt({
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ mode, prompt }),
     signal,
   });
 

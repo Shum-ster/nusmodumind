@@ -5,7 +5,7 @@ import {
   calculateGpa,
   dashboardGradeValues,
   formatGpa,
-  suGradeValue,
+  suGradeValues,
   type DashboardGrade,
 } from '../../dashboard-grades';
 import { buildUnsatisfiedModuleIssues } from '../../dashboard-validation';
@@ -121,9 +121,12 @@ export function DashboardSemesterLayout({ semesterName, semesterKey, modules }: 
                         {grade === 'F' ? 'Fail' : grade}
                       </option>
                     ))}
-                    {module.isSuEligible && (
-                      <option value={suGradeValue}>S/U</option>
-                    )}
+                    {module.isSuEligible &&
+                      suGradeValues.map((grade) => (
+                        <option key={grade} value={grade}>
+                          {grade === 'S' ? 'S/U Pass' : 'S/U Fail'}
+                        </option>
+                      ))}
                   </select>
                 )}
               </div>

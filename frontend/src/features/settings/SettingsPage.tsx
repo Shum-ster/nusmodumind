@@ -3,7 +3,10 @@
 import { KeyRound, Save, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { popularChoiceFaculties } from "@/features/popular-choices/popularChoicesData";
+import {
+  getPopularChoiceFacultyForProfile,
+  popularChoiceFaculties,
+} from "@/features/popular-choices/popularChoicesData";
 import { useUserProfile } from "@/features/user";
 
 const minimumProfileYear = 1900;
@@ -24,22 +27,6 @@ function isInvalidProfileYear(value: number | null) {
     Number.isNaN(value) ||
     (value !== null &&
       (value < minimumProfileYear || value > maximumProfileYear))
-  );
-}
-
-function getFacultyId(storedFaculty: string | null) {
-  if (!storedFaculty) {
-    return "";
-  }
-
-  return (
-    popularChoiceFaculties.find(
-      (faculty) =>
-        faculty.id === storedFaculty ||
-        faculty.title === storedFaculty ||
-        faculty.previousIds?.includes(storedFaculty) ||
-        faculty.previousTitles?.includes(storedFaculty),
-    )?.id ?? ""
   );
 }
 
@@ -96,13 +83,16 @@ export function SettingsPage() {
       setMatriculationYear(
         profile.matriculationYear ? String(profile.matriculationYear) : "",
       );
-      const nextFacultyId = getFacultyId(profile.faculty);
-      const nextFaculty = popularChoiceFaculties.find(
-        (faculty) => faculty.id === nextFacultyId,
+      const nextFaculty = getPopularChoiceFacultyForProfile(
+        profile.faculty,
+        profile.degree,
       );
+      const nextFacultyId = nextFaculty?.id ?? "";
       const nextMajor = nextFaculty?.degrees.find(
         (degree) =>
-          degree.title === profile.degree || degree.id === profile.degree,
+          degree.title === profile.degree ||
+          degree.id === profile.degree ||
+          degree.previousTitles?.includes(profile.degree ?? ""),
       );
 
       setFacultyId(nextFacultyId);

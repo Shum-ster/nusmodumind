@@ -232,6 +232,7 @@ describe('OpenAiGateway', () => {
             name: 'search_catalogue',
             call_id: 'call-1',
             arguments: JSON.stringify({ query: 'CS2' }),
+            parsed_arguments: { query: 'CS2' },
           },
         ],
       })
@@ -269,6 +270,15 @@ describe('OpenAiGateway', () => {
       tool_choice: string;
     }>(parseResponse, 1);
     expect(secondRequest.tool_choice).toBe('auto');
+    expect(secondRequest.input).toContainEqual({
+      type: 'function_call',
+      name: 'search_catalogue',
+      call_id: 'call-1',
+      arguments: JSON.stringify({ query: 'CS2' }),
+    });
+    expect(secondRequest.input.some((item) => 'parsed_arguments' in item)).toBe(
+      false,
+    );
     expect(secondRequest.input).toContainEqual({
       type: 'function_call_output',
       call_id: 'call-1',
@@ -377,7 +387,10 @@ describe('OpenAiGateway', () => {
   });
 });
 
-function createResponseStream(events: Array<Record<string, unknown>>) {
+function createResponseStream(
+  events: Array<Record<string, unknown>>,
+  response: Record<string, unknown> = { id: 'response-id', output: [] },
+) {
   let index = 0;
 
   return {
@@ -391,7 +404,7 @@ function createResponseStream(events: Array<Record<string, unknown>>) {
           ),
       };
     },
-    finalResponse: jest.fn().mockResolvedValue({ id: 'response-id' }),
+    finalResponse: jest.fn().mockResolvedValue(response),
   };
 }
 

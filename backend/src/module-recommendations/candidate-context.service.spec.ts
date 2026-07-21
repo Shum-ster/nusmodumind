@@ -58,6 +58,7 @@ describe('RecommendationContextService', () => {
         plannedModule('CS1231S', PlannedModuleStatus.PLANNED, 'S'),
         plannedModule('CS2030S', PlannedModuleStatus.PLANNED, 'F'),
         plannedModule('CS2040S', PlannedModuleStatus.PLANNED, 'PASS'),
+        plannedModule('CS2100', PlannedModuleStatus.PLANNED, 'U'),
         plannedModule('MA1521', PlannedModuleStatus.EXEMPTED, null),
       ],
     });
@@ -72,6 +73,7 @@ describe('RecommendationContextService', () => {
       'CS1231S',
       'CS2030S',
       'CS2040S',
+      'CS2100',
       'MA1521',
     ]);
     expect(context.completedModuleCodes).toEqual([

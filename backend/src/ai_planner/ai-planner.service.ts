@@ -21,9 +21,12 @@ import {
   degreeRequirementsInstructions,
   type DegreeRequirementsPromptContext,
 } from './prompts/degree-requirements.prompt';
+import { AiPlannerPromptMode } from './dto/general-prompt.dto';
 import {
   generalPromptInstructions,
   generalPromptVersion,
+  recommendationResponseInstructions,
+  recommendationResponsePromptVersion,
 } from './prompts/general-prompt.prompt';
 import {
   degreeRequirementsModelOutputSchema,
@@ -47,17 +50,36 @@ export class AiPlannerService {
   }
 
   async *streamGeneralPrompt(
+    userId: string,
     prompt: string,
+    mode: AiPlannerPromptMode,
     signal?: AbortSignal,
   ): AsyncGenerator<string> {
     let output = '';
+    const normalizedPrompt = prompt.trim();
+    const generationRequest =
+      mode === AiPlannerPromptMode.RECOMMEND_MODULES
+        ? {
+            instructions: recommendationResponseInstructions,
+            input: JSON.stringify({
+              userRequest: normalizedPrompt,
+              recommendationResult:
+                await this.moduleRecommendationService.generate(
+                  userId,
+                  normalizedPrompt,
+                  signal,
+                ),
+            }),
+            promptVersion: recommendationResponsePromptVersion,
+          }
+        : {
+            instructions: generalPromptInstructions,
+            input: normalizedPrompt,
+            promptVersion: generalPromptVersion,
+          };
 
     for await (const delta of this.openAiGateway.streamTextGeneration(
-      {
-        instructions: generalPromptInstructions,
-        input: prompt.trim(),
-        promptVersion: generalPromptVersion,
-      },
+      generationRequest,
       signal,
     )) {
       output += delta;

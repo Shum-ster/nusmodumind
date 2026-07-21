@@ -1,13 +1,14 @@
 import {
   dashboardGradeValues,
-  suGradeValue,
+  suGradeValues,
   type DashboardGrade,
   type DashboardLetterGrade,
   type DashboardModule,
+  type DashboardSuGrade,
 } from '@/shared/types';
 
-export { dashboardGradeValues, suGradeValue };
-export type { DashboardGrade, DashboardLetterGrade };
+export { dashboardGradeValues, suGradeValues };
+export type { DashboardGrade, DashboardLetterGrade, DashboardSuGrade };
 
 const gradePointByGrade: Record<DashboardLetterGrade, number> = {
   'A+': 5,
@@ -23,7 +24,10 @@ const gradePointByGrade: Record<DashboardLetterGrade, number> = {
   F: 0,
 };
 
-const dashboardGradeSet = new Set<string>([...dashboardGradeValues, suGradeValue]);
+const dashboardGradeSet = new Set<string>([
+  ...dashboardGradeValues,
+  ...suGradeValues,
+]);
 
 export function normalizeDashboardGrade(grade?: string | null): DashboardGrade | null {
   if (!grade) {
@@ -36,11 +40,15 @@ export function normalizeDashboardGrade(grade?: string | null): DashboardGrade |
 }
 
 export function getGradePoint(grade?: DashboardGrade | null) {
-  if (!grade || grade === suGradeValue) {
+  if (!grade || isSuGrade(grade)) {
     return null;
   }
 
   return gradePointByGrade[grade];
+}
+
+function isSuGrade(grade: DashboardGrade): grade is DashboardSuGrade {
+  return grade === 'S' || grade === 'U';
 }
 
 export function isGradePassingPrerequisite(grade?: DashboardGrade | null) {
@@ -48,7 +56,7 @@ export function isGradePassingPrerequisite(grade?: DashboardGrade | null) {
     return true;
   }
 
-  return grade !== 'F';
+  return grade !== 'F' && grade !== 'U';
 }
 
 export function isModuleSuEligible(attributes: unknown) {

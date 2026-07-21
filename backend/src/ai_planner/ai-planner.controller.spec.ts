@@ -4,6 +4,7 @@ import type { Request, Response } from 'express';
 import { AiPlannerController } from './ai-planner.controller';
 import { sseHeartbeatIntervalMs } from './ai-planner.controller';
 import { AiPlannerService } from './ai-planner.service';
+import { AiPlannerPromptMode } from './dto/general-prompt.dto';
 
 describe('AiPlannerController', () => {
   it('generates module recommendations for the authenticated user', async () => {
@@ -47,7 +48,11 @@ describe('AiPlannerController', () => {
     const response = new MockResponse();
 
     await controller.streamGeneralPrompt(
-      { prompt: 'What should I take next?' },
+      {
+        prompt: 'What should I take next?',
+        mode: AiPlannerPromptMode.RECOMMEND_MODULES,
+      },
+      { id: 'user-id', email: 'student@example.com' },
       request as unknown as Request,
       response as unknown as Response,
     );
@@ -64,10 +69,12 @@ describe('AiPlannerController', () => {
     ]);
     expect(response.end).toHaveBeenCalled();
     const streamCalls = aiPlannerService.streamGeneralPrompt.mock
-      .calls as Array<[string, AbortSignal]>;
+      .calls as Array<[string, string, AiPlannerPromptMode, AbortSignal]>;
 
-    expect(streamCalls[0][0]).toBe('What should I take next?');
-    expect(streamCalls[0][1]).toBeInstanceOf(AbortSignal);
+    expect(streamCalls[0][0]).toBe('user-id');
+    expect(streamCalls[0][1]).toBe('What should I take next?');
+    expect(streamCalls[0][2]).toBe(AiPlannerPromptMode.RECOMMEND_MODULES);
+    expect(streamCalls[0][3]).toBeInstanceOf(AbortSignal);
   });
 
   it('sends provider failures as safe SSE error events', async () => {
@@ -86,7 +93,8 @@ describe('AiPlannerController', () => {
     const response = new MockResponse();
 
     await controller.streamGeneralPrompt(
-      { prompt: 'Hello' },
+      { prompt: 'Hello', mode: AiPlannerPromptMode.CHAT },
+      { id: 'user-id', email: 'student@example.com' },
       new MockRequest() as unknown as Request,
       response as unknown as Response,
     );
@@ -102,10 +110,17 @@ describe('AiPlannerController', () => {
     const aiPlannerService = {
       streamGeneralPrompt: jest
         .fn()
-        .mockImplementation((_prompt, signal: AbortSignal) => {
-          receivedSignal = signal;
-          return createAbortableStream(signal);
-        }),
+        .mockImplementation(
+          (
+            _userId: string,
+            _prompt: string,
+            _mode: AiPlannerPromptMode,
+            signal: AbortSignal,
+          ) => {
+            receivedSignal = signal;
+            return createAbortableStream(signal);
+          },
+        ),
     };
     const controller = new AiPlannerController(
       aiPlannerService as unknown as AiPlannerService,
@@ -113,7 +128,8 @@ describe('AiPlannerController', () => {
     const request = new MockRequest();
     const response = new MockResponse();
     const streamingRequest = controller.streamGeneralPrompt(
-      { prompt: 'Hello' },
+      { prompt: 'Hello', mode: AiPlannerPromptMode.CHAT },
+      { id: 'user-id', email: 'student@example.com' },
       request as unknown as Request,
       response as unknown as Response,
     );

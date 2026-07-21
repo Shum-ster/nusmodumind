@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   GatewayTimeoutException,
+  HttpException,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -259,7 +260,7 @@ export class OpenAiGateway {
           { signal },
         );
         responseId = response.id;
-        input.push(...(response.output as ResponseInputItem[]));
+        input.push(...toResponseInputItems(response.output));
 
         const toolCalls = response.output.filter(
           (item) => item.type === 'function_call',
@@ -366,6 +367,9 @@ export class OpenAiGateway {
       JSON.stringify({
         ...requestDetails,
         errorCategory: getErrorCategory(error),
+        ...(process.env.NODE_ENV !== 'production'
+          ? { errorMessage: getErrorMessage(error) }
+          : {}),
         event: 'openai_response_failed',
       }),
     );
@@ -427,6 +431,33 @@ function getErrorCategory(error: unknown) {
   return error instanceof Error ? error.name : 'UnknownError';
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message.slice(0, 1_000) : String(error);
+}
+
+function toResponseInputItems(output: unknown[]): ResponseInputItem[] {
+  return stripParsedResponseMetadata(output) as ResponseInputItem[];
+}
+
+function stripParsedResponseMetadata(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(stripParsedResponseMetadata);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== 'parsed' && key !== 'parsed_arguments')
+      .map(([key, nestedValue]) => [
+        key,
+        stripParsedResponseMetadata(nestedValue),
+      ]),
+  );
+}
+
 function parseToolArguments<Schema extends z.ZodType>(
   argumentsJson: string,
   schema: Schema,
@@ -450,6 +481,10 @@ function parseToolArguments<Schema extends z.ZodType>(
 }
 
 function mapOpenAiError(error: unknown) {
+  if (error instanceof HttpException) {
+    return error;
+  }
+
   if (
     error instanceof GatewayTimeoutException ||
     error instanceof ServiceUnavailableException ||

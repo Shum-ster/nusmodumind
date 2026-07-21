@@ -119,7 +119,10 @@ describe('ModuleRecommendationService', () => {
       },
     });
 
-    const result = await service.generate('user-id');
+    const result = await service.generate(
+      'user-id',
+      'Prefer software security modules with manageable workload.',
+    );
 
     expect(contextService.loadRankingContext).toHaveBeenCalledWith(
       expect.anything(),
@@ -157,6 +160,16 @@ describe('ModuleRecommendationService', () => {
       reasoningEffort: string;
     }>(gateway.runStructuredGeneration, 0);
     expect(rankingRequest.reasoningEffort).toBe('medium');
+    expect(rankingRequest.input).toContain(
+      'Prefer software security modules with manageable workload.',
+    );
+    const candidateRequest = getCallArgument<{ input: string }>(
+      gateway.runStructuredToolWorkflow,
+      0,
+    );
+    expect(candidateRequest.input).toContain(
+      'Prefer software security modules with manageable workload.',
+    );
     expect(rankingRequest.input).not.toContain('semesterData');
     expect(rankingRequest.input).not.toContain('selectedLessons');
   });

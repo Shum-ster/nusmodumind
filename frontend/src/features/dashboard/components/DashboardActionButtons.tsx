@@ -2,7 +2,15 @@
 
 import { streamGeneralPrompt } from "@/features/ai-planner";
 import { getToken } from "@/features/auth/lib/token-storage";
-import { Bot, Download, LoaderCircle, Send, Upload, X } from "lucide-react";
+import {
+  Bot,
+  Download,
+  LoaderCircle,
+  Plus,
+  Send,
+  Upload,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, PointerEvent } from "react";
 
@@ -107,6 +115,7 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isRecommendationMode, setIsRecommendationMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dragOffsetRef = useRef<ChatPosition>({ x: 0, y: 0 });
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -173,7 +182,11 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const prompt = input.trim();
+    const prompt =
+      input.trim() ||
+      (isRecommendationMode
+        ? "Recommend modules for my next semester."
+        : "");
 
     if (!prompt || isStreaming) {
       return;
@@ -202,6 +215,7 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
 
     try {
       await streamGeneralPrompt({
+        mode: isRecommendationMode ? "recommend_modules" : "chat",
         prompt,
         token,
         signal: abortController.signal,
@@ -231,6 +245,8 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
       if (abortControllerRef.current === abortController) {
         abortControllerRef.current = null;
       }
+
+      setIsRecommendationMode(false);
     }
   }
 
@@ -314,19 +330,41 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="border-t border-gray-200 p-3">
+          <div className="mb-2 flex items-center">
+            <button
+              type="button"
+              disabled={isStreaming}
+              aria-pressed={isRecommendationMode}
+              onClick={() => setIsRecommendationMode((current) => !current)}
+              className={
+                isRecommendationMode
+                  ? "flex h-8 items-center gap-1.5 rounded-md border border-orange-300 bg-orange-50 px-2.5 text-xs font-semibold text-orange-700"
+                  : "flex h-8 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 disabled:text-gray-400"
+              }
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Recommend modules</span>
+            </button>
+          </div>
           <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] gap-2">
             <input
               type="text"
               value={input}
               disabled={isStreaming}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask AI Planner"
+              placeholder={
+                isRecommendationMode
+                  ? "Add preferences (optional)"
+                  : "Ask AI Planner"
+              }
               aria-label="AI Planner prompt"
               className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-50 disabled:text-gray-500"
             />
             <button
               type="submit"
-              disabled={isStreaming || !input.trim()}
+              disabled={
+                isStreaming || (!input.trim() && !isRecommendationMode)
+              }
               aria-label="Send"
               title="Send"
               className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-600 text-white transition hover:bg-orange-700 disabled:bg-gray-200 disabled:text-gray-500"

@@ -7,6 +7,7 @@ import { ModuleRecommendationService } from '../module-recommendations/module-re
 import { OpenAiGateway } from '../openai/openai.gateway';
 import { UsersService } from '../users/users.service';
 import { AiPlannerService } from './ai-planner.service';
+import { AiPlannerPromptMode } from './dto/general-prompt.dto';
 
 describe('AiPlannerService', () => {
   let service: AiPlannerService;
@@ -99,7 +100,9 @@ describe('AiPlannerService', () => {
     const abortController = new AbortController();
     const deltas = await collectStream(
       service.streamGeneralPrompt(
+        'user-id',
         '  What should I take next?  ',
+        AiPlannerPromptMode.CHAT,
         abortController.signal,
       ),
     );
@@ -119,8 +122,42 @@ describe('AiPlannerService', () => {
     expect(deltas).toEqual(['Take CS2030S ', 'next semester.']);
     expect(request.instructions).toContain('NUSModuMind');
     expect(request.input).toBe('What should I take next?');
-    expect(request.promptVersion).toBe('general-prompt-v1');
+    expect(request.promptVersion).toBe('general-prompt-v2');
     expect(textGenerationCalls[0][1]).toBe(abortController.signal);
+    expect(moduleRecommendationService.generate).not.toHaveBeenCalled();
+  });
+
+  it('runs recommendations only in explicit recommendation mode', async () => {
+    const abortController = new AbortController();
+    moduleRecommendationService.generate.mockResolvedValue({
+      recommendations: [{ moduleCode: 'CS2103T' }],
+    });
+
+    await collectStream(
+      service.streamGeneralPrompt(
+        'user-id',
+        '  Prefer project modules.  ',
+        AiPlannerPromptMode.RECOMMEND_MODULES,
+        abortController.signal,
+      ),
+    );
+
+    expect(moduleRecommendationService.generate).toHaveBeenCalledWith(
+      'user-id',
+      'Prefer project modules.',
+      abortController.signal,
+    );
+    const recommendationRequest = (
+      openAiGateway.streamTextGeneration.mock.calls as Array<
+        [{ input: string; promptVersion: string }, AbortSignal]
+      >
+    )[0][0];
+
+    expect(recommendationRequest.promptVersion).toBe(
+      'recommendation-response-v1',
+    );
+    expect(recommendationRequest.input).toContain('CS2103T');
+    expect(recommendationRequest.input).toContain('Prefer project modules.');
   });
 
   it('generates requirements from the proposed academic identity', async () => {

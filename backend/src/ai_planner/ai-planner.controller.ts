@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  BadRequestException,
   Body,
   Controller,
   GatewayTimeoutException,
@@ -8,6 +9,7 @@ import {
   Req,
   Res,
   ServiceUnavailableException,
+  UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -31,6 +33,7 @@ export class AiPlannerController {
   @Post('prompt')
   async streamGeneralPrompt(
     @Body() generalPromptDto: GeneralPromptDto,
+    @CurrentUser() user: AuthenticatedUser,
     @Req() request: Request,
     @Res() response: Response,
   ): Promise<void> {
@@ -60,7 +63,9 @@ export class AiPlannerController {
 
     try {
       for await (const delta of this.aiPlannerService.streamGeneralPrompt(
+        user.id,
         generalPromptDto.prompt,
+        generalPromptDto.mode,
         abortController.signal,
       )) {
         writeSseEvent(response, 'delta', { text: delta });
@@ -112,6 +117,14 @@ function writeSseEvent(
 }
 
 function getSseErrorMessage(error: unknown) {
+  if (error instanceof BadRequestException) {
+    return 'Complete your academic profile and graduation requirements before requesting module recommendations.';
+  }
+
+  if (error instanceof UnprocessableEntityException) {
+    return 'No eligible module recommendations were found for the current requirements and plan.';
+  }
+
   if (error instanceof GatewayTimeoutException) {
     return 'The AI response timed out. Please try again.';
   }

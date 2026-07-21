@@ -12,10 +12,11 @@ export const dashboardGradeValues = [
   'F',
 ] as const;
 
-export const suGradeValue = 'S/U';
+export const suGradeValues = ['S', 'U'] as const;
 
 export type DashboardLetterGrade = (typeof dashboardGradeValues)[number];
-export type DashboardGrade = DashboardLetterGrade | typeof suGradeValue;
+export type DashboardSuGrade = (typeof suGradeValues)[number];
+export type DashboardGrade = DashboardLetterGrade | DashboardSuGrade;
 
 export type DashboardModule = {
   code: string;
