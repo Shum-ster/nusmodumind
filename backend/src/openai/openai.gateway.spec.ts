@@ -1,5 +1,6 @@
 import { BadGatewayException, GatewayTimeoutException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { zodResponsesFunction } from 'openai/helpers/zod';
 import { z } from 'zod';
 import { OpenAiClientProvider } from './openai-client.provider';
 import { OpenAiGateway } from './openai.gateway';
@@ -14,6 +15,12 @@ describe('OpenAiGateway', () => {
       values: z.array(z.string()),
     })
     .strict();
+  const toolInputSchema = z.object({ query: z.string().min(1) }).strict();
+  const searchTool = zodResponsesFunction({
+    name: 'search_catalogue',
+    description: 'Search a bounded catalogue.',
+    parameters: toolInputSchema,
+  });
 
   beforeEach(() => {
     parseResponse = jest.fn();
@@ -185,6 +192,156 @@ describe('OpenAiGateway', () => {
     expect(result.model).toBe('gpt-custom');
   });
 
+  it('runs structured generation without tools', async () => {
+    parseResponse.mockResolvedValue({
+      id: 'response-id',
+      output_parsed: { values: ['CS2103T'] },
+      output: [],
+    });
+
+    const result = await gateway.runStructuredGeneration({
+      instructions: 'Rank candidates',
+      input: 'Candidate context',
+      promptVersion: 'ranking-v1',
+      reasoningEffort: 'medium',
+      schema: outputSchema,
+      schemaName: 'ranking',
+    });
+
+    expect(parseResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reasoning: { effort: 'medium' },
+        store: false,
+      }),
+      { signal: undefined },
+    );
+    expect(
+      getCallArgument<Record<string, unknown>>(parseResponse, 0),
+    ).not.toHaveProperty('tools');
+    expect(result.data).toEqual({ values: ['CS2103T'] });
+  });
+
+  it('executes sequential function calls and returns structured output', async () => {
+    parseResponse
+      .mockResolvedValueOnce({
+        id: 'response-1',
+        output_parsed: null,
+        output: [
+          {
+            type: 'function_call',
+            name: 'search_catalogue',
+            call_id: 'call-1',
+            arguments: JSON.stringify({ query: 'CS2' }),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        id: 'response-2',
+        output_parsed: { values: ['CS2103T'] },
+        output: [],
+      });
+    const executeTool = jest.fn().mockResolvedValue({ modules: ['CS2103T'] });
+
+    const result = await gateway.runStructuredToolWorkflow({
+      instructions: 'Search before selecting.',
+      input: 'Find requirement modules.',
+      promptVersion: 'candidates-v1',
+      reasoningEffort: 'low',
+      schema: outputSchema,
+      schemaName: 'candidates',
+      tool: searchTool,
+      toolInputSchema,
+      executeTool,
+      maxToolRounds: 6,
+    });
+
+    expect(executeTool).toHaveBeenCalledWith({ query: 'CS2' });
+    expect(parseResponse).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        tool_choice: { type: 'function', name: 'search_catalogue' },
+        parallel_tool_calls: false,
+      }),
+      { signal: undefined },
+    );
+    const secondRequest = getCallArgument<{
+      input: Array<Record<string, unknown>>;
+      tool_choice: string;
+    }>(parseResponse, 1);
+    expect(secondRequest.tool_choice).toBe('auto');
+    expect(secondRequest.input).toContainEqual({
+      type: 'function_call_output',
+      call_id: 'call-1',
+      output: JSON.stringify({ modules: ['CS2103T'] }),
+    });
+    expect(result.data).toEqual({ values: ['CS2103T'] });
+  });
+
+  it('rejects invalid tool arguments before executing the tool', async () => {
+    parseResponse.mockResolvedValue({
+      id: 'response-1',
+      output_parsed: null,
+      output: [
+        {
+          type: 'function_call',
+          name: 'search_catalogue',
+          call_id: 'call-1',
+          arguments: JSON.stringify({ query: '' }),
+        },
+      ],
+    });
+    const executeTool = jest.fn();
+
+    await expect(
+      gateway.runStructuredToolWorkflow({
+        instructions: 'Search first.',
+        input: 'Find modules.',
+        promptVersion: 'candidates-v1',
+        reasoningEffort: 'low',
+        schema: outputSchema,
+        schemaName: 'candidates',
+        tool: searchTool,
+        toolInputSchema,
+        executeTool,
+        maxToolRounds: 6,
+      }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+    expect(executeTool).not.toHaveBeenCalled();
+  });
+
+  it('stops when the model exceeds the configured tool rounds', async () => {
+    parseResponse.mockResolvedValue({
+      id: 'response-1',
+      output_parsed: null,
+      output: [
+        {
+          type: 'function_call',
+          name: 'search_catalogue',
+          call_id: 'call-1',
+          arguments: JSON.stringify({ query: 'CS' }),
+        },
+      ],
+    });
+    const executeTool = jest.fn().mockResolvedValue({ modules: [] });
+
+    await expect(
+      gateway.runStructuredToolWorkflow({
+        instructions: 'Search first.',
+        input: 'Find modules.',
+        promptVersion: 'candidates-v1',
+        reasoningEffort: 'low',
+        schema: outputSchema,
+        schemaName: 'candidates',
+        tool: searchTool,
+        toolInputSchema,
+        executeTool,
+        maxToolRounds: 1,
+      }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+    expect(parseResponse).toHaveBeenCalledTimes(2);
+    expect(executeTool).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects malformed structured output', async () => {
     parseResponse.mockResolvedValue({
       id: 'response-id',
@@ -246,4 +403,10 @@ async function collectStream(stream: AsyncIterable<string>) {
   }
 
   return chunks;
+}
+
+function getCallArgument<T>(mock: jest.Mock, callIndex: number): T {
+  const calls = mock.mock.calls as unknown[][];
+
+  return calls[callIndex][0] as T;
 }

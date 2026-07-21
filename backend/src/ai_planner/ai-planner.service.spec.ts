@@ -3,7 +3,8 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { OpenAiGateway } from '../ai/openai.gateway';
+import { ModuleRecommendationService } from '../module-recommendations/module-recommendation.service';
+import { OpenAiGateway } from '../openai/openai.gateway';
 import { UsersService } from '../users/users.service';
 import { AiPlannerService } from './ai-planner.service';
 
@@ -14,6 +15,7 @@ describe('AiPlannerService', () => {
     runStructuredWebSearch: jest.Mock;
     streamTextGeneration: jest.Mock;
   };
+  let moduleRecommendationService: { generate: jest.Mock };
 
   const modelOutput = {
     coreRequirements: [
@@ -65,9 +67,31 @@ describe('AiPlannerService', () => {
         sources: storedRequirements.sources,
       }),
     };
+    moduleRecommendationService = {
+      generate: jest.fn(),
+    };
     service = new AiPlannerService(
       usersService as unknown as UsersService,
       openAiGateway as unknown as OpenAiGateway,
+      moduleRecommendationService as unknown as ModuleRecommendationService,
+    );
+  });
+
+  it('generates recommendations for the authenticated user', async () => {
+    const recommendations = {
+      targetSemester: { acadYear: '2026/2027', semesterNumber: 1 },
+      candidateCount: 5,
+      recommendations: [],
+      generatedAt: '2026-07-20T00:00:00.000Z',
+      workflowVersion: 'module-recommendations-v1',
+    };
+    moduleRecommendationService.generate.mockResolvedValue(recommendations);
+
+    await expect(
+      service.generateModuleRecommendations('user-id'),
+    ).resolves.toEqual(recommendations);
+    expect(moduleRecommendationService.generate).toHaveBeenCalledWith(
+      'user-id',
     );
   });
 

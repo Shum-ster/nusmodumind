@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { AiModule } from '../ai/ai.module';
+import { ModuleRecommendationsModule } from '../module-recommendations/module-recommendations.module';
+import { OpenAiModule } from '../openai/openai.module';
 import { UsersModule } from '../users/users.module';
 import { AiPlannerController } from './ai-planner.controller';
 import { AiPlannerService } from './ai-planner.service';
 
 @Module({
-  imports: [AiModule, UsersModule],
+  imports: [ModuleRecommendationsModule, OpenAiModule, UsersModule],
   controllers: [AiPlannerController],
   providers: [AiPlannerService],
   exports: [AiPlannerService],

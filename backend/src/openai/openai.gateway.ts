@@ -8,12 +8,16 @@ import {
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
+import type { ResponseInputItem } from 'openai/resources/responses/responses';
 import type { z } from 'zod';
 import { OpenAiClientProvider } from './openai-client.provider';
 import type {
   OpenAiSource,
   StructuredWebSearchRequest,
   StructuredWebSearchResult,
+  StructuredGenerationRequest,
+  StructuredResponseResult,
+  StructuredToolWorkflowRequest,
   TextGenerationRequest,
 } from './openai.types';
 
@@ -163,6 +167,172 @@ export class OpenAiGateway {
     }
   }
 
+  async runStructuredGeneration<Schema extends z.ZodType>(
+    request: StructuredGenerationRequest<Schema>,
+    signal?: AbortSignal,
+  ): Promise<StructuredResponseResult<z.infer<Schema>>> {
+    const model = this.getModel();
+    const startedAt = Date.now();
+
+    try {
+      const response = await this.clientProvider.getClient().responses.parse(
+        {
+          model,
+          instructions: request.instructions,
+          input: request.input,
+          reasoning: { effort: request.reasoningEffort },
+          store: false,
+          text: {
+            format: zodTextFormat(request.schema, request.schemaName),
+          },
+        },
+        { signal },
+      );
+      const parsedOutput = request.schema.safeParse(response.output_parsed);
+
+      if (!parsedOutput.success) {
+        throw new BadGatewayException(
+          'OpenAI did not return valid structured output',
+        );
+      }
+
+      const durationMs = Date.now() - startedAt;
+
+      this.logCompletedRequest({
+        durationMs,
+        model,
+        promptVersion: request.promptVersion,
+        responseId: response.id,
+      });
+
+      return {
+        data: parsedOutput.data,
+        durationMs,
+        model,
+        responseId: response.id,
+      };
+    } catch (error) {
+      this.logFailedRequest({
+        durationMs: Date.now() - startedAt,
+        error,
+        model,
+        promptVersion: request.promptVersion,
+      });
+
+      throw mapOpenAiError(error);
+    }
+  }
+
+  async runStructuredToolWorkflow<
+    OutputSchema extends z.ZodType,
+    ToolInputSchema extends z.ZodType,
+  >(
+    request: StructuredToolWorkflowRequest<OutputSchema, ToolInputSchema>,
+    signal?: AbortSignal,
+  ): Promise<StructuredResponseResult<z.infer<OutputSchema>>> {
+    const model = this.getModel();
+    const startedAt = Date.now();
+    const input: ResponseInputItem[] = [
+      { role: 'user', content: request.input },
+    ];
+    let responseId: string | null = null;
+
+    try {
+      for (let round = 0; round <= request.maxToolRounds; round += 1) {
+        const response = await this.clientProvider.getClient().responses.parse(
+          {
+            model,
+            instructions: request.instructions,
+            input,
+            reasoning: { effort: request.reasoningEffort },
+            tools: [request.tool],
+            tool_choice:
+              round === 0
+                ? { type: 'function', name: request.tool.name }
+                : 'auto',
+            parallel_tool_calls: false,
+            store: false,
+            text: {
+              format: zodTextFormat(request.schema, request.schemaName),
+            },
+          },
+          { signal },
+        );
+        responseId = response.id;
+        input.push(...(response.output as ResponseInputItem[]));
+
+        const toolCalls = response.output.filter(
+          (item) => item.type === 'function_call',
+        );
+
+        if (!toolCalls.length) {
+          const parsedOutput = request.schema.safeParse(response.output_parsed);
+
+          if (!parsedOutput.success) {
+            throw new BadGatewayException(
+              'OpenAI did not return valid structured output',
+            );
+          }
+
+          const durationMs = Date.now() - startedAt;
+
+          this.logCompletedRequest({
+            durationMs,
+            model,
+            promptVersion: request.promptVersion,
+            responseId,
+          });
+
+          return {
+            data: parsedOutput.data,
+            durationMs,
+            model,
+            responseId,
+          };
+        }
+
+        if (round >= request.maxToolRounds) {
+          throw new BadGatewayException(
+            'OpenAI exceeded the allowed tool call limit',
+          );
+        }
+
+        for (const toolCall of toolCalls) {
+          if (toolCall.name !== request.tool.name) {
+            throw new BadGatewayException(
+              `OpenAI requested unsupported tool ${toolCall.name}`,
+            );
+          }
+
+          const toolArguments = parseToolArguments(
+            toolCall.arguments,
+            request.toolInputSchema,
+          );
+          const toolOutput = await request.executeTool(toolArguments);
+
+          input.push({
+            type: 'function_call_output',
+            call_id: toolCall.call_id,
+            output: JSON.stringify(toolOutput),
+          });
+        }
+      }
+
+      throw new BadGatewayException(
+        'OpenAI did not complete the tool workflow',
+      );
+    } catch (error) {
+      this.logFailedRequest({
+        durationMs: Date.now() - startedAt,
+        error,
+        model,
+        promptVersion: request.promptVersion,
+      });
+
+      throw mapOpenAiError(error);
+    }
+  }
+
   private getModel() {
     return (
       this.configService.get<string>('OPENAI_MODEL')?.trim() ||
@@ -255,6 +425,28 @@ function normalizeNusSource(sourceUrl: string): OpenAiSource | null {
 
 function getErrorCategory(error: unknown) {
   return error instanceof Error ? error.name : 'UnknownError';
+}
+
+function parseToolArguments<Schema extends z.ZodType>(
+  argumentsJson: string,
+  schema: Schema,
+): z.infer<Schema> {
+  try {
+    const parsedArguments: unknown = JSON.parse(argumentsJson);
+    const result = schema.safeParse(parsedArguments);
+
+    if (!result.success) {
+      throw new BadGatewayException('OpenAI returned invalid tool arguments');
+    }
+
+    return result.data;
+  } catch (error) {
+    if (error instanceof BadGatewayException) {
+      throw error;
+    }
+
+    throw new BadGatewayException('OpenAI returned invalid tool arguments');
+  }
 }
 
 function mapOpenAiError(error: unknown) {

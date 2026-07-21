@@ -5,8 +5,12 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { OpenAiGateway } from '../ai/openai.gateway';
-import type { DegreeRequirementsResponse } from '../shared/types';
+import { ModuleRecommendationService } from '../module-recommendations/module-recommendation.service';
+import { OpenAiGateway } from '../openai/openai.gateway';
+import type {
+  DegreeRequirementsResponse,
+  ModuleRecommendationsResponse,
+} from '../shared/types';
 import { UsersService } from '../users/users.service';
 import {
   degreeRequirementsPromptVersion,
@@ -33,7 +37,14 @@ export class AiPlannerService {
   constructor(
     private readonly usersService: UsersService,
     private readonly openAiGateway: OpenAiGateway,
+    private readonly moduleRecommendationService: ModuleRecommendationService,
   ) {}
+
+  generateModuleRecommendations(
+    userId: string,
+  ): Promise<ModuleRecommendationsResponse> {
+    return this.moduleRecommendationService.generate(userId);
+  }
 
   async *streamGeneralPrompt(
     prompt: string,

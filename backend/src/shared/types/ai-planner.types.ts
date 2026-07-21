@@ -56,3 +56,31 @@ export type DegreeRequirementsResponse = {
   generatedAt: string;
   promptVersion: 'degree-requirements-v2';
 };
+
+export type RecommendationTargetSemester = {
+  acadYear: string;
+  semesterNumber: 1 | 2;
+};
+
+export type ModuleRecommendationsResponse = {
+  targetSemester: RecommendationTargetSemester | null;
+  candidateCount: number;
+  recommendations: Array<{
+    rank: number;
+    moduleCode: string;
+    title: string;
+    moduleCredit: number | null;
+    workloadHours: number | null;
+    availableSemesters: number[];
+    matchedRequirementIds: string[];
+    rationale: string;
+    lifestyleFit: string | null;
+    reviewSummary: {
+      averageRating: number | null;
+      reviewCount: number;
+    };
+    cautions: string[];
+  }>;
+  generatedAt: string;
+  workflowVersion: 'module-recommendations-v1';
+};

@@ -16,6 +16,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type {
   AuthenticatedUser,
   DegreeRequirementsResponse,
+  ModuleRecommendationsResponse,
 } from '../shared/types';
 import { AiPlannerService } from './ai-planner.service';
 import { GeneralPromptDto } from './dto/general-prompt.dto';
@@ -83,6 +84,14 @@ export class AiPlannerController {
         response.end();
       }
     }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('module-recommendations')
+  generateModuleRecommendations(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ModuleRecommendationsResponse> {
+    return this.aiPlannerService.generateModuleRecommendations(user.id);
   }
 
   @UseGuards(AuthGuard('jwt'))

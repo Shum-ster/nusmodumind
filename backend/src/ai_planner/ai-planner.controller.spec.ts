@@ -6,6 +6,34 @@ import { sseHeartbeatIntervalMs } from './ai-planner.controller';
 import { AiPlannerService } from './ai-planner.service';
 
 describe('AiPlannerController', () => {
+  it('generates module recommendations for the authenticated user', async () => {
+    const recommendations = {
+      targetSemester: { acadYear: '2026/2027', semesterNumber: 1 as const },
+      candidateCount: 1,
+      recommendations: [],
+      generatedAt: '2026-07-20T00:00:00.000Z',
+      workflowVersion: 'module-recommendations-v1' as const,
+    };
+    const aiPlannerService = {
+      generateModuleRecommendations: jest
+        .fn()
+        .mockResolvedValue(recommendations),
+    };
+    const controller = new AiPlannerController(
+      aiPlannerService as unknown as AiPlannerService,
+    );
+
+    await expect(
+      controller.generateModuleRecommendations({
+        id: 'user-id',
+        email: 'student@example.com',
+      }),
+    ).resolves.toEqual(recommendations);
+    expect(aiPlannerService.generateModuleRecommendations).toHaveBeenCalledWith(
+      'user-id',
+    );
+  });
+
   it('streams general prompt deltas as SSE events', async () => {
     const aiPlannerService = {
       streamGeneralPrompt: jest

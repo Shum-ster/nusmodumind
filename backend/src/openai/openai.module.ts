@@ -8,4 +8,4 @@ import { OpenAiGateway } from './openai.gateway';
   providers: [OpenAiClientProvider, OpenAiGateway],
   exports: [OpenAiGateway],
 })
-export class AiModule {}
+export class OpenAiModule {}
