@@ -1,5 +1,6 @@
 import {
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -13,6 +14,22 @@ export enum PlannedModuleStatusDto {
   EXEMPTED = 'EXEMPTED',
   PLANNED = 'PLANNED',
 }
+
+const actualGradeValues = [
+  'A+',
+  'A',
+  'A-',
+  'B+',
+  'B',
+  'B-',
+  'C+',
+  'C',
+  'D+',
+  'D',
+  'F',
+  'S',
+  'U',
+] as const;
 
 export class CreatePlannedModuleDto {
   @IsUUID()
@@ -32,6 +49,7 @@ export class CreatePlannedModuleDto {
   expectedGrade?: string;
 
   @IsString()
+  @IsIn(actualGradeValues)
   @IsOptional()
   actualGrade?: string;
 

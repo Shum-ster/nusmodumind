@@ -1,0 +1,41 @@
+@startuml Course_Catalog_Create_Module_Review_Sequence
+
+title Course Catalog - Create Module Review
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "CoursesPage" as CoursesPage
+participant "courses-api.ts" as CoursesApi
+participant "JWT AuthGuard" as JwtGuard
+participant "ModuleReviewsController" as ModuleReviewsController
+participant "ModuleReviewsService" as ModuleReviewsService
+database "PostgreSQL" as DB
+
+Student -> CoursesPage : Submit rating and content
+CoursesPage -> CoursesApi : createModuleReview(token, body)
+CoursesApi -> JwtGuard : POST /module-reviews\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> CoursesApi : 401 Unauthorized
+    CoursesApi --> CoursesPage : Display auth error
+else Token valid
+    JwtGuard -> ModuleReviewsController : create(currentUser, dto)
+    ModuleReviewsController -> ModuleReviewsService : create(user.id, dto)
+    ModuleReviewsService -> ModuleReviewsService : Uppercase moduleCode
+    ModuleReviewsService -> DB : INSERT module_reviews
+    DB --> ModuleReviewsService : Created review
+    ModuleReviewsService --> ModuleReviewsController : Created review
+    ModuleReviewsController --> CoursesApi : 201 Created
+    CoursesApi --> CoursesPage : Created review
+    CoursesPage --> Student : Show review in module page
+end
+
+@enduml

@@ -1,0 +1,65 @@
+@startuml Marketplace_Copy_Public_Plan_Into_Workspace_Sequence
+
+title Marketplace - Copy Public Plan Into Own Workspace
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "MarketplacePage" as MarketplacePage
+participant "marketplace-api.ts" as MarketplaceApi
+participant "planner-api.ts" as PlannerApi
+participant "JWT AuthGuard" as JwtGuard
+participant "PublicPlansController" as PublicPlansController
+participant "PublicPlansService" as PublicPlansService
+participant "SemestersController" as SemestersController
+participant "SemestersService" as SemestersService
+participant "PlannedModulesController" as PlannedModulesController
+participant "PlannedModulesService" as PlannedModulesService
+database "PostgreSQL" as DB
+
+Student -> MarketplacePage : Copy public plan
+MarketplacePage -> MarketplaceApi : getPublicPlan(id)
+MarketplaceApi -> PublicPlansController : GET /public-plans/:id
+PublicPlansController -> PublicPlansService : findOne(id)
+PublicPlansService -> DB : SELECT public_plan with plan_snapshot
+DB --> PublicPlansService : public plan detail
+PublicPlansService --> PublicPlansController : public plan detail
+PublicPlansController --> MarketplaceApi : 200 OK
+MarketplaceApi --> MarketplacePage : planSnapshot
+
+MarketplacePage -> MarketplacePage : Read semesters and modules from planSnapshot
+
+loop For each semester in snapshot
+    MarketplacePage -> PlannerApi : createSemester(token, semester)
+    PlannerApi -> JwtGuard : POST /semesters\nAuthorization: Bearer token
+    JwtGuard -> SemestersController : create(currentUser, dto)
+    SemestersController -> SemestersService : create(user.id, dto)
+    SemestersService -> DB : INSERT semesters
+    DB --> SemestersService : new semester
+    SemestersService --> SemestersController : new semester
+    SemestersController --> PlannerApi : 201 Created
+    PlannerApi --> MarketplacePage : new semester id
+end
+
+loop For each planned module in snapshot
+    MarketplacePage -> PlannerApi : createPlannedModule(token, copied module)
+    PlannerApi -> JwtGuard : POST /planned-modules\nAuthorization: Bearer token
+    JwtGuard -> PlannedModulesController : create(currentUser, dto)
+    PlannedModulesController -> PlannedModulesService : create(user.id, dto)
+    PlannedModulesService -> DB : INSERT planned_modules
+    DB --> PlannedModulesService : new planned module
+    PlannedModulesService --> PlannedModulesController : new planned module
+    PlannedModulesController --> PlannerApi : 201 Created
+    PlannerApi --> MarketplacePage : new planned module
+end
+
+MarketplacePage --> Student : Public plan appears in own dashboard/workspace
+
+@enduml

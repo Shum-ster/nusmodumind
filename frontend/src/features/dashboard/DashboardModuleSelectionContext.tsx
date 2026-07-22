@@ -212,9 +212,9 @@ export function DashboardModuleSelectionProvider({
   children,
 }: DashboardModuleSelectionProviderProps) {
   const { profile } = useUserProfile();
-  const matriculationYear = getMatriculationYearFromGraduationYear(
-    profile?.graduationYear,
-  );
+  const matriculationYear =
+    profile?.matriculationYear ??
+    getMatriculationYearFromGraduationYear(profile?.graduationYear);
   const [completedSemesterKeys, setCompletedSemesterKeys] = useState(
     cloneInitialCompletedSemesterKeys,
   );

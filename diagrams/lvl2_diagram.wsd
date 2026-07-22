@@ -1,0 +1,45 @@
+@startuml C4_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container Diagram for Academic Planning System
+
+Person(student, "Student", "A university student managing their academic plan.")
+
+System_Boundary(c1, "Academic Planning System") {
+    Container(web_app, "Web Application", "Next.js", "Provides the user interface for students to view and manage their academic plans.")
+    
+    ContainerDb(database, "Database", "PostgreSQL", "Stores user account info, module reviews, academic plan library.")
+    
+    Container(api_app, "API Application", "NestJS", "Provides module planning functionality using API")
+}
+
+System_Ext(email_service, "Email Service", "External service for sending notification emails.")
+
+' Define the bottom three services
+System_Ext(llm_service, "AI LLM Provider", "External AI service that processes system prompt and outputs recommendations.")
+System_Ext(nusmods_api, "NUSMods API", "Provides module data, schedule, venue updates.")
+System_Ext(google_calendar, "Google Calendar API", "Syncs user timetables to their personal Google Calendar.")
+
+' --- Core vertical flow ---
+Rel_D(student, web_app, "Uses", "HTTPS")
+Rel_D(web_app, api_app, "Makes API calls to", "JSON/HTTPS")
+
+' --- Push DB to the left of the API ---
+Rel_L(api_app, database, "Uses", "SQL/TCP")
+
+' --- Push Email to the right, and route it back up to the student ---
+Rel_R(api_app, email_service, "Sends emails using", "JSON/HTTPS")
+Rel_U(email_service, student, "Sends emails to", "SMTP")
+
+' --- Push the other 3 external APIs Straight Down ---
+Rel_D(api_app, llm_service, "Sends system prompts to", "JSON/HTTPS")
+Rel_D(nusmods_api, api_app, "Fetches module data from", "JSON/HTTPS")
+Rel_D(api_app, google_calendar, "Exports timetables to", "JSON/HTTPS")
+
+' --- Force horizontal alignment evenly at the bottom ---
+llm_service -[hidden]R-> nusmods_api
+nusmods_api -[hidden]R-> google_calendar
+
+@enduml

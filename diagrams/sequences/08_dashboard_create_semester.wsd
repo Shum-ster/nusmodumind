@@ -1,0 +1,40 @@
+@startuml Dashboard_Create_Semester_Sequence
+
+title Dashboard / Planner - Create Semester
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "DashboardPage" as DashboardPage
+participant "planner-api.ts" as PlannerApi
+participant "JWT AuthGuard" as JwtGuard
+participant "SemestersController" as SemestersController
+participant "SemestersService" as SemestersService
+database "PostgreSQL" as DB
+
+Student -> DashboardPage : Add academic year / semester
+DashboardPage -> PlannerApi : createSemester(token, body)
+PlannerApi -> JwtGuard : POST /semesters\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> PlannerApi : 401 Unauthorized
+    PlannerApi --> DashboardPage : Display auth error
+else Token valid
+    JwtGuard -> SemestersController : create(currentUser, dto)
+    SemestersController -> SemestersService : create(user.id, dto)
+    SemestersService -> DB : INSERT semesters with user_id
+    DB --> SemestersService : Created semester
+    SemestersService --> SemestersController : Created semester
+    SemestersController --> PlannerApi : 201 Created
+    PlannerApi --> DashboardPage : Semester record
+    DashboardPage --> Student : Show new semester column/section
+end
+
+@enduml

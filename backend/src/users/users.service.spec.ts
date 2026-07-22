@@ -9,6 +9,7 @@ describe('UsersService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
     };
   };
 
@@ -24,6 +25,7 @@ describe('UsersService', () => {
         findUnique: jest.fn().mockResolvedValue(user),
         create: jest.fn().mockResolvedValue(user),
         update: jest.fn().mockResolvedValue(user),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
 
@@ -72,5 +74,40 @@ describe('UsersService', () => {
       where: { id: 'user-id' },
       data,
     });
+  });
+
+  it('atomically updates an academic profile only after its cooldown', async () => {
+    const now = new Date('2026-07-19T00:00:00.000Z');
+    const data = {
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+    };
+
+    await expect(
+      service.updateUserIfAcademicProfileAllowed('user-id', now, data),
+    ).resolves.toEqual(user);
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'user-id',
+        OR: [
+          { academicProfileChangeAllowedAt: null },
+          { academicProfileChangeAllowedAt: { lte: now } },
+        ],
+      },
+      data,
+    });
+  });
+
+  it('returns null when another academic update owns the cooldown', async () => {
+    prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.updateUserIfAcademicProfileAllowed(
+        'user-id',
+        new Date('2026-07-19T00:00:00.000Z'),
+        { degree: 'Computer Science' },
+      ),
+    ).resolves.toBeNull();
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(0);
   });
 });

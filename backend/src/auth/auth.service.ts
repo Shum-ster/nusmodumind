@@ -5,41 +5,41 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { RegisterDto } from './dto/register.dto';
-import { UpdateProfileDto } from './dto/update-profile.dto';
+import { AiPlannerService } from '../ai_planner/ai-planner.service';
 import type {
   AuthenticatedUser,
   LoginResponse,
   UserProfile,
 } from '../shared/types';
+import { UsersService } from '../users/users.service';
+import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+
+export const academicProfileCooldownMs = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+    private readonly aiPlannerService: AiPlannerService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthenticatedUser> {
     const { email, password } = registerDto;
-
-    // Check if user exists
     const existingUser = await this.usersService.findUserByEmail(email);
+
     if (existingUser) {
       throw new ConflictException('A user with this email already exists');
     }
 
-    // Hashing password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // Create new user in db
+    const passwordHash = await bcrypt.hash(password, 10);
     const newUser = await this.usersService.createUser({
       email,
-      passwordHash: hashedPassword,
+      passwordHash,
     });
 
     return {
@@ -50,21 +50,18 @@ export class AuthService {
 
   async validateUser(
     email: string,
-    pass: string,
+    password: string,
   ): Promise<AuthenticatedUser | null> {
     const user = await this.usersService.findUserByEmail(email);
 
-    if (user) {
-      const isMatch = await bcrypt.compare(pass, user.passwordHash);
-      if (isMatch) {
-        return {
-          id: user.id,
-          email: user.email,
-        };
-      }
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      return null;
     }
 
-    return null;
+    return {
+      id: user.id,
+      email: user.email,
+    };
   }
 
   async getProfile(userId: string): Promise<UserProfile> {
@@ -87,54 +84,162 @@ export class AuthService {
       throw new NotFoundException('User profile was not found');
     }
 
-    const isChangingPassword =
-      updateProfileDto.currentPassword !== undefined ||
-      updateProfileDto.newPassword !== undefined;
-    const updateData: Parameters<UsersService['updateUser']>[1] = {};
+    const updateData: Prisma.UserUpdateInput = {};
+    const nextFaculty = getNextNullableString(
+      updateProfileDto.faculty,
+      user.faculty,
+    );
+    const nextDegree = getNextNullableString(
+      updateProfileDto.degree,
+      user.degree,
+    );
+    const nextMatriculationYear =
+      updateProfileDto.matriculationYear === undefined
+        ? user.matriculationYear
+        : updateProfileDto.matriculationYear;
+    const academicIdentityChanged =
+      nextFaculty !== user.faculty ||
+      nextDegree !== user.degree ||
+      nextMatriculationYear !== user.matriculationYear;
+    const hasCompleteAcademicIdentity =
+      Boolean(nextFaculty) &&
+      Boolean(nextDegree) &&
+      nextMatriculationYear !== null;
+    const now = new Date();
+    const academicProfileIsLocked =
+      user.academicProfileChangeAllowedAt instanceof Date &&
+      user.academicProfileChangeAllowedAt.getTime() > now.getTime();
+
+    if (academicIdentityChanged && !hasCompleteAcademicIdentity) {
+      throw new BadRequestException(
+        'Faculty, major, and matriculation year are required to update the academic profile',
+      );
+    }
+
+    if (academicIdentityChanged && academicProfileIsLocked) {
+      throw createAcademicProfileCooldownException(
+        user.academicProfileChangeAllowedAt!,
+      );
+    }
 
     if (updateProfileDto.username !== undefined) {
-      const username = updateProfileDto.username?.trim();
-
-      updateData.username = username ? username : null;
+      updateData.username = normalizeNullableString(updateProfileDto.username);
     }
 
     if (updateProfileDto.graduationYear !== undefined) {
       updateData.graduationYear = updateProfileDto.graduationYear;
     }
 
-    if (isChangingPassword) {
-      if (!updateProfileDto.currentPassword || !updateProfileDto.newPassword) {
-        throw new BadRequestException(
-          'Current password and new password are required to change password',
-        );
-      }
+    if (updateProfileDto.matriculationYear !== undefined) {
+      updateData.matriculationYear = updateProfileDto.matriculationYear;
+    }
 
-      const isPasswordMatch = await bcrypt.compare(
-        updateProfileDto.currentPassword,
-        user.passwordHash,
-      );
+    if (updateProfileDto.faculty !== undefined) {
+      updateData.faculty = normalizeNullableString(updateProfileDto.faculty);
+    }
 
-      if (!isPasswordMatch) {
-        throw new UnauthorizedException('Current password is incorrect');
-      }
+    if (updateProfileDto.degree !== undefined) {
+      updateData.degree = normalizeNullableString(updateProfileDto.degree);
+    }
 
-      updateData.passwordHash = await bcrypt.hash(
-        updateProfileDto.newPassword,
-        10,
+    if (updateProfileDto.lifestylePreferences !== undefined) {
+      updateData.lifestylePreferences = normalizeNullableString(
+        updateProfileDto.lifestylePreferences,
       );
     }
 
-    const updatedUser = await this.usersService.updateUser(userId, updateData);
+    await this.addPasswordUpdate(
+      user.passwordHash,
+      updateProfileDto,
+      updateData,
+    );
+
+    const shouldGenerateRequirements =
+      hasCompleteAcademicIdentity &&
+      (academicIdentityChanged ||
+        (user.graduationRequirements == null && !academicProfileIsLocked));
+
+    if (!shouldGenerateRequirements) {
+      const updatedUser = await this.usersService.updateUser(
+        userId,
+        updateData,
+      );
+
+      return this.toUserProfile(updatedUser);
+    }
+
+    const graduationRequirements =
+      await this.aiPlannerService.generateDegreeRequirements({
+        faculty: nextFaculty!,
+        degree: nextDegree!,
+        matriculationYear: nextMatriculationYear,
+      });
+    const academicProfileChangeAllowedAt = new Date(
+      now.getTime() + academicProfileCooldownMs,
+    );
+
+    updateData.graduationRequirements = graduationRequirements;
+    updateData.academicProfileChangeAllowedAt = academicProfileChangeAllowedAt;
+
+    const updatedUser =
+      await this.usersService.updateUserIfAcademicProfileAllowed(
+        userId,
+        now,
+        updateData,
+      );
+
+    if (!updatedUser) {
+      const latestUser = await this.usersService.findUserById(userId);
+
+      if (latestUser?.academicProfileChangeAllowedAt) {
+        throw createAcademicProfileCooldownException(
+          latestUser.academicProfileChangeAllowedAt,
+        );
+      }
+
+      throw new ConflictException(
+        'The academic profile changed in another request. Refresh and try again.',
+      );
+    }
 
     return this.toUserProfile(updatedUser);
   }
 
   login(user: AuthenticatedUser): LoginResponse {
-    const payload = { email: user.email, sub: user.id };
-    // Sign the payload using secret key and return
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign({ email: user.email, sub: user.id }),
     };
+  }
+
+  private async addPasswordUpdate(
+    passwordHash: string,
+    updateProfileDto: UpdateProfileDto,
+    updateData: Prisma.UserUpdateInput,
+  ) {
+    const isChangingPassword =
+      updateProfileDto.currentPassword !== undefined ||
+      updateProfileDto.newPassword !== undefined;
+
+    if (!isChangingPassword) {
+      return;
+    }
+
+    if (!updateProfileDto.currentPassword || !updateProfileDto.newPassword) {
+      throw new BadRequestException(
+        'Current password and new password are required to change password',
+      );
+    }
+
+    if (
+      !(await bcrypt.compare(updateProfileDto.currentPassword, passwordHash))
+    ) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    updateData.passwordHash = await bcrypt.hash(
+      updateProfileDto.newPassword,
+      10,
+    );
   }
 
   private toUserProfile(user: {
@@ -144,6 +249,10 @@ export class AuthService {
     faculty: string | null;
     degree: string | null;
     graduationYear: number | null;
+    matriculationYear: number | null;
+    lifestylePreferences: string | null;
+    graduationRequirements: Prisma.JsonValue | null;
+    academicProfileChangeAllowedAt: Date | null;
   }): UserProfile {
     return {
       id: user.id,
@@ -152,6 +261,31 @@ export class AuthService {
       faculty: user.faculty,
       degree: user.degree,
       graduationYear: user.graduationYear,
+      matriculationYear: user.matriculationYear,
+      lifestylePreferences: user.lifestylePreferences,
+      academicProfileChangeAllowedAt:
+        user.academicProfileChangeAllowedAt?.toISOString() ?? null,
+      hasGraduationRequirements: user.graduationRequirements != null,
     };
   }
+}
+
+function getNextNullableString(
+  value: string | null | undefined,
+  currentValue: string | null,
+) {
+  return value === undefined ? currentValue : normalizeNullableString(value);
+}
+
+function normalizeNullableString(value: string | null) {
+  const normalizedValue = value?.trim();
+
+  return normalizedValue ? normalizedValue : null;
+}
+
+function createAcademicProfileCooldownException(allowedAt: Date) {
+  return new ConflictException({
+    message: `Academic profile can be changed again after ${allowedAt.toISOString()}`,
+    academicProfileChangeAllowedAt: allowedAt.toISOString(),
+  });
 }

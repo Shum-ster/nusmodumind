@@ -1,0 +1,52 @@
+@startuml Marketplace_Delete_Public_Plan_Sequence
+
+title Marketplace - Delete Public Plan
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "MarketplacePage" as MarketplacePage
+participant "marketplace-api.ts" as MarketplaceApi
+participant "JWT AuthGuard" as JwtGuard
+participant "PublicPlansController" as PublicPlansController
+participant "PublicPlansService" as PublicPlansService
+database "PostgreSQL" as DB
+
+Student -> MarketplacePage : Delete own public plan
+MarketplacePage -> MarketplaceApi : deletePublicPlan(token, id)
+MarketplaceApi -> JwtGuard : DELETE /public-plans/:id\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> MarketplaceApi : 401 Unauthorized
+    MarketplaceApi --> MarketplacePage : Display auth error
+else Token valid
+    JwtGuard -> PublicPlansController : remove(currentUser, id)
+    PublicPlansController -> PublicPlansService : remove(user.id, id)
+    PublicPlansService -> DB : SELECT public_plan by id with author and reviews
+    DB --> PublicPlansService : public plan or null
+
+    alt Public plan not found
+        PublicPlansService --> PublicPlansController : NotFoundException
+        PublicPlansController --> MarketplaceApi : 404 Not Found
+    else Public plan belongs to another user
+        PublicPlansService --> PublicPlansController : ForbiddenException
+        PublicPlansController --> MarketplaceApi : 403 Forbidden
+    else Current user authored public plan
+        PublicPlansService -> DB : DELETE public_plans
+        DB --> PublicPlansService : Deleted public plan
+        PublicPlansService --> PublicPlansController : Deleted public plan
+        PublicPlansController --> MarketplaceApi : 200 OK
+    end
+
+    MarketplaceApi --> MarketplacePage : Result or error
+    MarketplacePage --> Student : Remove public plan from marketplace UI
+end
+
+@enduml

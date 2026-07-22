@@ -1,0 +1,52 @@
+@startuml Dashboard_Delete_Module_Sequence
+
+title Dashboard / Planner - Delete Module
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "DashboardPage" as DashboardPage
+participant "planner-api.ts" as PlannerApi
+participant "JWT AuthGuard" as JwtGuard
+participant "PlannedModulesController" as PlannedModulesController
+participant "PlannedModulesService" as PlannedModulesService
+database "PostgreSQL" as DB
+
+Student -> DashboardPage : Delete module from plan
+DashboardPage -> PlannerApi : deletePlannedModule(token, id)
+PlannerApi -> JwtGuard : DELETE /planned-modules/:id\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> PlannerApi : 401 Unauthorized
+    PlannerApi --> DashboardPage : Display auth error
+else Token valid
+    JwtGuard -> PlannedModulesController : remove(currentUser, id)
+    PlannedModulesController -> PlannedModulesService : remove(user.id, id)
+    PlannedModulesService -> DB : SELECT planned_module by id
+    DB --> PlannedModulesService : planned module or null
+
+    alt Planned module not found
+        PlannedModulesService --> PlannedModulesController : NotFoundException
+        PlannedModulesController --> PlannerApi : 404 Not Found
+    else Planned module belongs to another user
+        PlannedModulesService --> PlannedModulesController : ForbiddenException
+        PlannedModulesController --> PlannerApi : 403 Forbidden
+    else Current user owns planned module
+        PlannedModulesService -> DB : DELETE planned_modules
+        DB --> PlannedModulesService : Deleted planned module
+        PlannedModulesService --> PlannedModulesController : Deleted planned module
+        PlannedModulesController --> PlannerApi : 200 OK
+    end
+
+    PlannerApi --> DashboardPage : Result or error
+    DashboardPage --> Student : Remove module from planner
+end
+
+@enduml

@@ -20,6 +20,10 @@ describe('AuthController', () => {
     faculty: null,
     degree: null,
     graduationYear: 2030,
+    matriculationYear: 2026,
+    lifestylePreferences: null,
+    academicProfileChangeAllowedAt: null,
+    hasGraduationRequirements: false,
   };
 
   beforeEach(async () => {
@@ -67,7 +71,11 @@ describe('AuthController', () => {
   it('updates the current user profile', async () => {
     const updateProfileDto = {
       username: 'Jason',
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
       graduationYear: 2030,
+      matriculationYear: 2026,
+      lifestylePreferences: 'Prefer morning classes',
     };
 
     await expect(controller.updateMe(user, updateProfileDto)).resolves.toEqual(

@@ -1,0 +1,52 @@
+@startuml Marketplace_Delete_Public_Plan_Comment_Sequence
+
+title Marketplace - Delete Public Plan Comment
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "MarketplacePage" as MarketplacePage
+participant "marketplace-api.ts" as MarketplaceApi
+participant "JWT AuthGuard" as JwtGuard
+participant "PlanReviewsController" as PlanReviewsController
+participant "PlanReviewsService" as PlanReviewsService
+database "PostgreSQL" as DB
+
+Student -> MarketplacePage : Delete own public plan comment
+MarketplacePage -> MarketplaceApi : deletePlanReview(token, id)
+MarketplaceApi -> JwtGuard : DELETE /plan-reviews/:id\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> MarketplaceApi : 401 Unauthorized
+    MarketplaceApi --> MarketplacePage : Display auth error
+else Token valid
+    JwtGuard -> PlanReviewsController : remove(currentUser, id)
+    PlanReviewsController -> PlanReviewsService : remove(user.id, id)
+    PlanReviewsService -> DB : SELECT plan_review by id
+    DB --> PlanReviewsService : plan review or null
+
+    alt Plan comment not found
+        PlanReviewsService --> PlanReviewsController : NotFoundException
+        PlanReviewsController --> MarketplaceApi : 404 Not Found
+    else Comment belongs to another user
+        PlanReviewsService --> PlanReviewsController : ForbiddenException
+        PlanReviewsController --> MarketplaceApi : 403 Forbidden
+    else Comment belongs to current user
+        PlanReviewsService -> DB : DELETE plan_reviews
+        DB --> PlanReviewsService : Deleted plan review
+        PlanReviewsService --> PlanReviewsController : Deleted plan review
+        PlanReviewsController --> MarketplaceApi : 200 OK
+    end
+
+    MarketplaceApi --> MarketplacePage : Result or error
+    MarketplacePage --> Student : Remove comment from plan detail
+end
+
+@enduml

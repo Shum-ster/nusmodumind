@@ -1,10 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { PopularChoicesDegreePage } from '@/features/popular-choices';
-import {
-  getPopularChoiceDegree,
-  getPopularChoiceFaculty,
-} from '@/features/popular-choices/popularChoicesData';
+import { getPopularChoiceSelection } from '@/features/popular-choices/popularChoicesData';
 
 type PopularChoicesDegreeRouteProps = {
   params: Promise<{
@@ -13,14 +10,20 @@ type PopularChoicesDegreeRouteProps = {
   }>;
 };
 
-export default async function PopularChoicesDegreeRoute({ params }: PopularChoicesDegreeRouteProps) {
+export default async function PopularChoicesDegreeRoute({
+  params,
+}: PopularChoicesDegreeRouteProps) {
   const { faculty: facultyId, degree: degreeId } = await params;
-  const faculty = getPopularChoiceFaculty(facultyId);
-  const degree = getPopularChoiceDegree(facultyId, degreeId);
+  const selection = getPopularChoiceSelection(facultyId, degreeId);
 
-  if (!faculty || !degree) {
+  if (!selection) {
     notFound();
   }
 
-  return <PopularChoicesDegreePage faculty={faculty} degree={degree} />;
+  return (
+    <PopularChoicesDegreePage
+      faculty={selection.faculty}
+      degree={selection.degree}
+    />
+  );
 }

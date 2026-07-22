@@ -1,0 +1,52 @@
+@startuml Course_Catalog_Edit_Module_Review_Sequence
+
+title Course Catalog - Edit Module Review
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "CoursesPage" as CoursesPage
+participant "courses-api.ts" as CoursesApi
+participant "JWT AuthGuard" as JwtGuard
+participant "ModuleReviewsController" as ModuleReviewsController
+participant "ModuleReviewsService" as ModuleReviewsService
+database "PostgreSQL" as DB
+
+Student -> CoursesPage : Edit review rating/content
+CoursesPage -> CoursesApi : update module review request
+CoursesApi -> JwtGuard : PATCH /module-reviews/:id\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> CoursesApi : 401 Unauthorized
+    CoursesApi --> CoursesPage : Display auth error
+else Token valid
+    JwtGuard -> ModuleReviewsController : update(currentUser, id, dto)
+    ModuleReviewsController -> ModuleReviewsService : update(user.id, id, dto)
+    ModuleReviewsService -> DB : SELECT module_review by id
+    DB --> ModuleReviewsService : review or null
+
+    alt Review not found
+        ModuleReviewsService --> ModuleReviewsController : NotFoundException
+        ModuleReviewsController --> CoursesApi : 404 Not Found
+    else Review belongs to another user
+        ModuleReviewsService --> ModuleReviewsController : ForbiddenException
+        ModuleReviewsController --> CoursesApi : 403 Forbidden
+    else Review belongs to current user
+        ModuleReviewsService -> DB : UPDATE module_reviews
+        DB --> ModuleReviewsService : Updated review
+        ModuleReviewsService --> ModuleReviewsController : Updated review
+        ModuleReviewsController --> CoursesApi : 200 OK
+    end
+
+    CoursesApi --> CoursesPage : Result or error
+    CoursesPage --> Student : Refresh review state
+end
+
+@enduml

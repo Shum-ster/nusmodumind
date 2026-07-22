@@ -1,0 +1,32 @@
+@startuml Header_Search_Modules_Sequence
+
+title Header Search - Search Modules From Top Nav
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "Header" as Header
+participant "layout-api.ts" as LayoutApi
+participant "NusmoduleController" as NusmoduleController
+participant "NusmoduleService" as NusmoduleService
+database "PostgreSQL" as DB
+
+Student -> Header : Type search text in top nav
+Header -> LayoutApi : searchHeaderModules(search)
+LayoutApi -> NusmoduleController : GET /nusmodule?search=:search&limit=8
+NusmoduleController -> NusmoduleService : findAll({ search, limit: 8 })
+NusmoduleService -> DB : SELECT matching nus_modules\nLIMIT 9
+DB --> NusmoduleService : matching modules
+NusmoduleService --> NusmoduleController : { items, nextCursor }
+NusmoduleController --> LayoutApi : Search response
+LayoutApi --> Header : Top nav results
+Header --> Student : Show module suggestions
+
+@enduml

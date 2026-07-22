@@ -1,0 +1,53 @@
+@startuml Auth_Login_Sequence
+
+title Auth - Login
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "AuthPage" as AuthPage
+participant "auth-api.ts" as AuthApi
+participant "LocalStrategy" as LocalStrategy
+participant "AuthController" as AuthController
+participant "AuthService" as AuthService
+participant "UsersService" as UsersService
+participant "bcrypt" as Bcrypt
+participant "JwtService" as JwtService
+database "PostgreSQL" as DB
+
+Student -> AuthPage : Submit email and password
+AuthPage -> AuthApi : login(credentials)
+AuthApi -> LocalStrategy : POST /auth/login
+LocalStrategy -> AuthService : validateUser(email, password)
+AuthService -> UsersService : findUserByEmail(email)
+UsersService -> DB : SELECT user by email
+DB --> UsersService : user or null
+UsersService --> AuthService : user or null
+
+alt Invalid email or password
+    AuthService --> LocalStrategy : null
+    LocalStrategy --> AuthApi : 401 Unauthorized
+    AuthApi --> AuthPage : Display login error
+else Valid credentials
+    AuthService -> Bcrypt : compare(password, passwordHash)
+    Bcrypt --> AuthService : true
+    AuthService --> LocalStrategy : { id, email }
+    LocalStrategy -> AuthController : login(currentUser)
+    AuthController -> AuthService : login(user)
+    AuthService -> JwtService : sign({ sub: id, email })
+    JwtService --> AuthService : access_token
+    AuthService --> AuthController : { access_token }
+    AuthController --> AuthApi : 201 Created
+    AuthApi --> AuthPage : access_token
+    AuthPage -> AuthPage : saveToken(access_token)
+    AuthPage --> Student : Enter authenticated app
+end
+
+@enduml
