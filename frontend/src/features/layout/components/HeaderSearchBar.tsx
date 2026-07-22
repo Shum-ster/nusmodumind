@@ -8,7 +8,9 @@ export function HeaderSearchBar() {
 
   return (
     <NusModuleSearchBar
-      onModuleClick={(module) => router.push(`/courses?module=${encodeURIComponent(module.moduleCode)}`)}
+      onModuleClick={(module) =>
+        router.push(`/courses/${encodeURIComponent(module.moduleCode)}`)
+      }
     />
   );
 }

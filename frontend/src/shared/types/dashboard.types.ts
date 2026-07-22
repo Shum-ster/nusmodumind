@@ -13,10 +13,15 @@ export const dashboardGradeValues = [
 ] as const;
 
 export const suGradeValues = ['S', 'U'] as const;
+export const csCuGradeValues = ['CS', 'CU'] as const;
 
 export type DashboardLetterGrade = (typeof dashboardGradeValues)[number];
 export type DashboardSuGrade = (typeof suGradeValues)[number];
-export type DashboardGrade = DashboardLetterGrade | DashboardSuGrade;
+export type DashboardCsCuGrade = (typeof csCuGradeValues)[number];
+export type DashboardGrade =
+  | DashboardLetterGrade
+  | DashboardSuGrade
+  | DashboardCsCuGrade;
 
 export type DashboardModule = {
   code: string;
@@ -25,6 +30,7 @@ export type DashboardModule = {
   credits: number;
   estimatedWorkload: number;
   actualGrade?: DashboardGrade | null;
+  gradingBasisDescription?: string | null;
   isSuEligible?: boolean;
   prerequisite?: string | null;
   semesterData?: unknown;

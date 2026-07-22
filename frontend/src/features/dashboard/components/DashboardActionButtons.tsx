@@ -5,20 +5,32 @@ import {
   type AiPlannerProgressStage,
 } from "@/features/ai-planner";
 import { getToken } from "@/features/auth/lib/token-storage";
+import { useUserProfile } from "@/features/user";
 import {
+  BookMarked,
   Bot,
   Download,
   LoaderCircle,
   Plus,
   Send,
   Square,
-  Upload,
+  UploadCloud,
   X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Markdown, { type Components } from "react-markdown";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, MouseEvent, PointerEvent } from "react";
 import remarkGfm from "remark-gfm";
+import { useDashboardModuleSelection } from "../DashboardModuleSelectionContext";
+import {
+  buildDashboardPlanIssues,
+  buildDashboardPlanSnapshot,
+  downloadDataUrl,
+  formatDashboardPlanIssueMessage,
+  renderDashboardPlanImage,
+  saveDashboardPlanDraft,
+} from "../dashboard-plan-export";
 
 type ChatPosition = {
   x: number;
@@ -38,7 +50,7 @@ type ActiveChatRequest = {
   userMessageId: number;
 };
 
-const notificationDurationMs = 2400;
+const notificationDurationMs = 6000;
 let nextChatMessageId = 1;
 
 const assistantMarkdownComponents: Components = {
@@ -118,8 +130,12 @@ function getInitialChatPosition(): ChatPosition {
 }
 
 export function DashboardActionButtons() {
+  const dashboardPlan = useDashboardModuleSelection();
+  const { isLoadingProfile, profile } = useUserProfile();
+  const router = useRouter();
   const [notification, setNotification] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isPreparingPlanImage, setIsPreparingPlanImage] = useState(false);
   const notificationTimeoutRef = useRef<number | null>(null);
 
   useEffect(
@@ -143,26 +159,129 @@ export function DashboardActionButtons() {
     }, notificationDurationMs);
   }
 
+  function getPlanIssueMessage() {
+    return formatDashboardPlanIssueMessage(
+      buildDashboardPlanIssues({
+        exemptedModules: dashboardPlan.exemptedModules,
+        semesterModules: dashboardPlan.semesterModules,
+      }),
+    );
+  }
+
+  function getMissingProfileMessage() {
+    if (isLoadingProfile) {
+      return "Your profile is still loading. Please try again in a moment.";
+    }
+
+    if (!profile?.faculty || !profile.degree) {
+      return "Add your faculty and major in Settings before submitting a public degree plan.";
+    }
+
+    return null;
+  }
+
+  async function prepareDegreePlanDraft() {
+    const issueMessage = getPlanIssueMessage();
+
+    if (issueMessage) {
+      showNotification(issueMessage);
+      return null;
+    }
+
+    const snapshot = buildDashboardPlanSnapshot(dashboardPlan);
+    const planImageDataUrl = await renderDashboardPlanImage(snapshot);
+
+    return { planImageDataUrl, snapshot };
+  }
+
+  async function handleDownloadPlan() {
+    setIsPreparingPlanImage(true);
+
+    try {
+      const draft = await prepareDegreePlanDraft();
+
+      if (!draft) {
+        return;
+      }
+
+      downloadDataUrl(draft.planImageDataUrl, "degree-plan.png");
+      showNotification("Degree plan image downloaded.");
+    } catch (error) {
+      showNotification(
+        error instanceof Error
+          ? error.message
+          : "Unable to download the degree plan image.",
+      );
+    } finally {
+      setIsPreparingPlanImage(false);
+    }
+  }
+
+  async function handleSubmitToPopularChoices() {
+    const profileMessage = getMissingProfileMessage();
+
+    if (profileMessage) {
+      showNotification(profileMessage);
+      return;
+    }
+
+    if (!getToken()) {
+      showNotification("Your session has expired. Please log in again.");
+      return;
+    }
+
+    setIsPreparingPlanImage(true);
+
+    try {
+      const draft = await prepareDegreePlanDraft();
+
+      if (!draft) {
+        return;
+      }
+
+      saveDashboardPlanDraft(draft);
+      router.push("/popular-choices/submit");
+    } catch (error) {
+      showNotification(
+        error instanceof Error
+          ? error.message
+          : "Unable to prepare the degree plan for submission.",
+      );
+    } finally {
+      setIsPreparingPlanImage(false);
+    }
+  }
+
   return (
     <>
       <div className="relative flex items-center gap-2">
         <button
           type="button"
-          title="Upload"
-          aria-label="Upload"
-          onClick={() => showNotification("Upload button clicked.")}
+          title="Upload to Popular Choices"
+          aria-label="Upload to Popular Choices"
+          disabled={isPreparingPlanImage}
+          onClick={handleSubmitToPopularChoices}
           className="flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 bg-gray-100 text-gray-700 shadow-sm transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-300"
         >
-          <Upload className="h-4 w-4" />
+          <UploadCloud className="h-4 w-4" />
         </button>
         <button
           type="button"
           title="Download"
           aria-label="Download"
-          onClick={() => showNotification("Download button clicked.")}
+          disabled={isPreparingPlanImage}
+          onClick={handleDownloadPlan}
           className="flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 bg-gray-100 text-gray-700 shadow-sm transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-300"
         >
           <Download className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/popular-choices/my-degree-plan")}
+          className="inline-flex h-10 items-center gap-2 rounded-md border border-gray-300 bg-gray-100 px-3 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-300"
+        >
+          <BookMarked className="h-4 w-4" />
+          My Submitted Degree Plan
         </button>
         <button
           type="button"
@@ -175,7 +294,7 @@ export function DashboardActionButtons() {
         </button>
 
         {notification && (
-          <div className="absolute right-0 top-12 z-30 w-56 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-lg">
+          <div className="absolute right-0 top-12 z-30 w-96 whitespace-pre-line rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-lg">
             {notification}
           </div>
         )}

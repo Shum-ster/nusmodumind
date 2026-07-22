@@ -1,4 +1,5 @@
-import { CoursesPage } from '@/features/courses';
+import { redirect } from 'next/navigation';
+import { CourseCatalog } from '@/features/courses';
 
 type CoursesRouteProps = {
   searchParams?: Promise<{
@@ -11,5 +12,9 @@ export default async function CoursesRoute({ searchParams }: CoursesRouteProps) 
   const moduleParam = resolvedSearchParams?.module;
   const selectedModuleCode = Array.isArray(moduleParam) ? moduleParam[0] : moduleParam;
 
-  return <CoursesPage selectedModuleCode={selectedModuleCode?.toUpperCase() ?? null} />;
+  if (selectedModuleCode) {
+    redirect(`/courses/${encodeURIComponent(selectedModuleCode.toUpperCase())}`);
+  }
+
+  return <CourseCatalog />;
 }

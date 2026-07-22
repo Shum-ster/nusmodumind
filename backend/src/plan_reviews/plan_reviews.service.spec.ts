@@ -18,7 +18,7 @@ describe('PlanReviewsService', () => {
       delete: jest.Mock;
     };
   };
-  let publicPlansService: { findOne: jest.Mock };
+  let publicPlansService: { findOneWithoutViewIncrement: jest.Mock };
 
   const review = {
     id: '11111111-1111-1111-1111-111111111111',
@@ -44,7 +44,9 @@ describe('PlanReviewsService', () => {
       },
     };
     publicPlansService = {
-      findOne: jest.fn().mockResolvedValue({ id: review.publicPlanId }),
+      findOneWithoutViewIncrement: jest
+        .fn()
+        .mockResolvedValue({ id: review.publicPlanId }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -70,7 +72,7 @@ describe('PlanReviewsService', () => {
     };
 
     await expect(service.create(review.userId, data)).resolves.toEqual(review);
-    expect(publicPlansService.findOne).toHaveBeenCalledWith(
+    expect(publicPlansService.findOneWithoutViewIncrement).toHaveBeenCalledWith(
       review.publicPlanId,
     );
     expect(prisma.planReview.create).toHaveBeenCalledWith({
@@ -79,7 +81,9 @@ describe('PlanReviewsService', () => {
   });
 
   it('throws a bad request when the public plan does not exist', async () => {
-    publicPlansService.findOne.mockRejectedValue(new Error('missing'));
+    publicPlansService.findOneWithoutViewIncrement.mockRejectedValue(
+      new Error('missing'),
+    );
 
     await expect(
       service.create(review.userId, {

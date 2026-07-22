@@ -3,7 +3,6 @@ import type {
   NusModsSemesterData,
   SemesterKey,
   SemesterNumber,
-  UnsatisfiedModuleIssue,
   YearNumber,
 } from '@/shared/types';
 import { isGradePassingPrerequisite } from './dashboard-grades';

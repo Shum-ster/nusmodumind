@@ -59,6 +59,8 @@ describe('RecommendationContextService', () => {
         plannedModule('CS2030S', PlannedModuleStatus.PLANNED, 'F'),
         plannedModule('CS2040S', PlannedModuleStatus.PLANNED, 'PASS'),
         plannedModule('CS2100', PlannedModuleStatus.PLANNED, 'U'),
+        plannedModule('GEA1000', PlannedModuleStatus.PLANNED, 'CS'),
+        plannedModule('GEC1000', PlannedModuleStatus.PLANNED, 'CU'),
         plannedModule('MA1521', PlannedModuleStatus.EXEMPTED, null),
       ],
     });
@@ -74,11 +76,14 @@ describe('RecommendationContextService', () => {
       'CS2030S',
       'CS2040S',
       'CS2100',
+      'GEA1000',
+      'GEC1000',
       'MA1521',
     ]);
     expect(context.completedModuleCodes).toEqual([
       'CS1010S',
       'CS1231S',
+      'GEA1000',
       'MA1521',
     ]);
     expect(context.gradedUnits).toBe(8);

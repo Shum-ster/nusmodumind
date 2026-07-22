@@ -12,107 +12,58 @@ export type PopularChoiceFaculty = {
   degrees: PopularChoiceDegree[];
 };
 
-export type PopularChoicePlan = {
-  id: string;
-  facultyId: string;
-  degreeId: string;
-  title: string;
-  likes: number;
-  views: number;
-  createdAt: string;
-  coverImageUrl?: string;
-  coverPalette: [string, string];
-};
-
-export type RankedDegreePlanGroups = {
-  mostPopular: PopularChoicePlan[];
-  highestRated: PopularChoicePlan[];
-  upAndComing: PopularChoicePlan[];
-};
-
-const planTitlePrefixes = [
-  'Balanced',
-  'Honours Track',
-  'Internship Ready',
-  'Exchange Friendly',
-  'Research Focused',
-  'Portfolio Builder',
-  'Double Specialisation',
-  'Flexible Core',
-  'Graduate Prep',
-  'Industry Sprint',
-  'Capstone First',
-  'Minor Friendly',
-  'Workload Smooth',
-  'Year Two Pivot',
-  'Final Year Focus',
-  'Accelerated',
-  'Breadth Builder',
-  'Project Heavy',
-  'Starter',
-  'Advanced',
-  'Low Clash',
-  'Summer Ready',
-  'Peer Tested',
-  'Fresh Upload',
-];
-
-const recentPlanAgesInDays = [
-  8, 21, 37, 54, 76, 103, 128, 156, 184, 221, 268, 319,
-  388, 430, 492, 540, 610, 690, 760, 830, 910, 990, 1070, 1160,
-];
-
-const rankingReferenceTime = Date.parse('2026-07-12T00:00:00.000Z');
-
-const coverPalettes: Array<[string, string]> = [
-  ['#f97316', '#2563eb'],
-  ['#16a34a', '#0f766e'],
-  ['#dc2626', '#7c3aed'],
-  ['#0891b2', '#f59e0b'],
-  ['#4f46e5', '#db2777'],
-  ['#65a30d', '#0284c7'],
-];
-
 export const popularChoiceFaculties: PopularChoiceFaculty[] = [
+  {
+    id: 'business',
+    title: 'NUS Business School',
+    previousTitles: ['Business', 'School of Business'],
+    degrees: [
+      {
+        id: 'business-administration',
+        title: 'Business Administration',
+        previousTitles: [
+          'Accountancy',
+          'Applied Business Analytics',
+          'Business Economics',
+          'Finance',
+          'Innovation and Entrepreneurship',
+          'Leadership and Human Capital Management',
+          'Marketing',
+          'Operations and Supply Chain Management',
+          'Real Estate',
+        ],
+      },
+    ],
+  },
   {
     id: 'computing',
     title: 'School of Computing',
     previousTitles: ['Computing'],
     degrees: [
       { id: 'business-analytics', title: 'Business Analytics' },
-      { id: 'artificial-intelligence', title: 'Artificial Intelligence' },
+      { id: 'computer-engineering', title: 'Computer Engineering' },
+      {
+        id: 'common-computer-science-programmes',
+        title: 'Common Computer Science Programmes',
+        previousTitles: ['Artificial Intelligence', 'Computer Science'],
+      },
+      { id: 'information-security', title: 'Information Security' },
       {
         id: 'business-artificial-intelligence-systems',
         title: 'Business Artificial Intelligence Systems',
-        previousTitles: ['Artificial Intelligence Systems', 'Information Systems'],
+        previousTitles: [
+          'Artificial Intelligence Systems',
+          "Business Artificial Intelligence Systems (formerly known as 'Information Systems')",
+          'Information Systems',
+        ],
       },
-      { id: 'computer-engineering', title: 'Computer Engineering' },
-      { id: 'computer-science', title: 'Computer Science' },
-      { id: 'information-security', title: 'Information Security' },
     ],
   },
   {
-    id: 'business',
-    title: 'School of Business',
-    previousTitles: ['Business'],
-    degrees: [
-      { id: 'accountancy', title: 'Accountancy' },
-      { id: 'applied-business-analytics', title: 'Applied Business Analytics' },
-      { id: 'business-administration', title: 'Business Administration' },
-      { id: 'business-economics', title: 'Business Economics' },
-      { id: 'finance', title: 'Finance' },
-      { id: 'innovation-and-entrepreneurship', title: 'Innovation and Entrepreneurship' },
-      {
-        id: 'leadership-and-human-capital-management',
-        title: 'Leadership and Human Capital Management',
-      },
-      { id: 'marketing', title: 'Marketing' },
-      {
-        id: 'operations-and-supply-chain-management',
-        title: 'Operations and Supply Chain Management',
-      },
-      { id: 'real-estate', title: 'Real Estate' },
-    ],
+    id: 'dentistry',
+    title: 'Faculty of Dentistry',
+    previousTitles: ['Dentistry'],
+    degrees: [{ id: 'dentistry', title: 'Dentistry' }],
   },
   {
     id: 'design-and-engineering',
@@ -120,141 +71,140 @@ export const popularChoiceFaculties: PopularChoiceFaculty[] = [
     previousTitles: ['Design and Engineering'],
     degrees: [
       { id: 'architecture', title: 'Architecture' },
-      { id: 'biomedical-engineering', title: 'Biomedical Engineering' },
-      { id: 'chemical-engineering', title: 'Chemical Engineering' },
-      { id: 'civil-engineering', title: 'Civil Engineering' },
-      { id: 'computer-engineering', title: 'Computer Engineering' },
-      { id: 'electrical-engineering', title: 'Electrical Engineering' },
-      { id: 'engineering', title: 'Engineering' },
-      { id: 'engineering-science', title: 'Engineering Science' },
       {
-        id: 'environmental-and-sustainability-engineering',
-        title: 'Environmental and Sustainability Engineering',
+        id: 'engineering',
+        title: 'Engineering',
+        previousTitles: [
+          'Biomedical Engineering',
+          'Chemical Engineering',
+          'Civil Engineering',
+          'Electrical Engineering',
+          'Engineering Science',
+          'Environmental and Sustainability Engineering',
+          'Industrial and Systems Engineering',
+          'Infrastructure and Project Management',
+          'Materials Science and Engineering',
+          'Mechanical Engineering',
+          'Robotics and Machine Intelligence',
+        ],
       },
       { id: 'industrial-design', title: 'Industrial Design' },
-      {
-        id: 'industrial-and-systems-engineering',
-        title: 'Industrial and Systems Engineering',
-      },
-      {
-        id: 'infrastructure-and-project-management',
-        title: 'Infrastructure and Project Management',
-      },
       { id: 'landscape-architecture', title: 'Landscape Architecture' },
-      {
-        id: 'materials-science-and-engineering',
-        title: 'Materials Science and Engineering',
-      },
-      { id: 'mechanical-engineering', title: 'Mechanical Engineering' },
-      {
-        id: 'robotics-and-machine-intelligence',
-        title: 'Robotics and Machine Intelligence',
-      },
+      { id: 'computer-engineering', title: 'Computer Engineering' },
     ],
   },
   {
-    id: 'arts-and-social-sciences',
-    title: 'Faculty of Arts and Social Sciences',
-    previousIds: ['humanities-and-sciences'],
+    id: 'humanities-and-sciences',
+    title: 'College of Humanities and Sciences',
+    previousIds: ['arts-and-social-sciences', 'science'],
     previousTitles: [
       'Humanities and Sciences',
-      'College of Humanities and Sciences',
+      'Faculty of Arts and Social Sciences',
+      'Faculty of Science',
     ],
     degrees: [
-      { id: 'anthropology', title: 'Anthropology' },
-      { id: 'chinese-languages-and-cultures', title: 'Chinese Languages and Cultures' },
-      { id: 'chinese-studies-bilingual', title: 'Chinese Studies (Bilingual)' },
-      { id: 'communications-and-new-media', title: 'Communications and New Media' },
-      { id: 'economics', title: 'Economics' },
-      { id: 'english-language-and-linguistics', title: 'English Language and Linguistics' },
-      { id: 'english-literature', title: 'English Literature' },
-      { id: 'geography', title: 'Geography' },
-      { id: 'geospatial-intelligence', title: 'Geospatial Intelligence' },
-      { id: 'global-studies', title: 'Global Studies' },
-      { id: 'history', title: 'History' },
-      { id: 'japanese-studies', title: 'Japanese Studies' },
-      { id: 'malay-studies', title: 'Malay Studies' },
-      { id: 'philosophy', title: 'Philosophy' },
-      { id: 'political-science', title: 'Political Science' },
-      { id: 'ppe', title: 'Philosophy, Politics and Economics' },
-      { id: 'psychology', title: 'Psychology' },
-      { id: 'social-work', title: 'Social Work' },
-      { id: 'sociology', title: 'Sociology' },
-      { id: 'south-asian-studies', title: 'South Asian Studies' },
-      { id: 'southeast-asian-studies', title: 'Southeast Asian Studies' },
-      { id: 'theatre-and-performance-studies', title: 'Theatre and Performance Studies' },
-    ],
-  },
-  {
-    id: 'science',
-    title: 'Faculty of Science',
-    previousIds: ['humanities-and-sciences', 'pharmacy'],
-    previousTitles: [
-      'Humanities and Sciences',
-      'College of Humanities and Sciences',
-      'Pharmacy',
-      'Faculty of Science - Pharmacy and Pharmaceutical Sciences',
-    ],
-    degrees: [
-      { id: 'chemistry', title: 'Chemistry' },
-      { id: 'data-science-and-analytics', title: 'Data Science and Analytics' },
-      { id: 'data-science-and-applied-ai', title: 'Data Science and Applied AI' },
-      { id: 'data-science-and-economics', title: 'Data Science and Economics' },
+      {
+        id: 'data-science-and-economics',
+        title: 'Data Science & Economics',
+        previousTitles: ['Data Science and Economics'],
+      },
       { id: 'environmental-studies', title: 'Environmental Studies' },
-      { id: 'food-science-and-technology', title: 'Food Science and Technology' },
-      { id: 'life-sciences', title: 'Life Sciences' },
-      { id: 'mathematics', title: 'Mathematics' },
-      { id: 'pharmaceutical-science', title: 'Pharmaceutical Science' },
-      { id: 'pharmacy', title: 'Pharmacy' },
-      { id: 'physics', title: 'Physics' },
-      { id: 'quantitative-finance', title: 'Quantitative Finance' },
-      { id: 'statistics', title: 'Statistics' },
-    ],
-  },
-  {
-    id: 'medicine',
-    title: 'Yong Loo Lin School of Medicine',
-    previousIds: ['nursing'],
-    previousTitles: [
-      'Medicine',
-      'Nursing',
-      'Yong Loo Lin School of Medicine - Nursing',
-    ],
-    degrees: [
-      { id: 'medicine', title: 'Medicine' },
-      { id: 'nursing', title: 'Nursing' },
-    ],
-  },
-  {
-    id: 'music',
-    title: 'Yong Siew Toh Conservatory of Music',
-    previousTitles: ['Music'],
-    degrees: [
-      { id: 'music', title: 'Music' },
+      {
+        id: 'food-science-and-technology',
+        title: 'Food Science & Technology',
+        previousTitles: ['Food Science and Technology'],
+      },
+      {
+        id: 'humanities-and-sciences',
+        title: 'Humanities & Sciences',
+        previousTitles: [
+          'Anthropology',
+          'Chemistry',
+          'Chinese Languages and Cultures',
+          'Chinese Studies (Bilingual)',
+          'Communications and New Media',
+          'Data Science and Analytics',
+          'Data Science and Applied AI',
+          'Economics',
+          'English Language and Linguistics',
+          'English Literature',
+          'Geography',
+          'Geospatial Intelligence',
+          'Global Studies',
+          'History',
+          'Japanese Studies',
+          'Life Sciences',
+          'Malay Studies',
+          'Mathematics',
+          'Philosophy',
+          'Physics',
+          'Political Science',
+          'Psychology',
+          'Quantitative Finance',
+          'Social Work',
+          'Sociology',
+          'South Asian Studies',
+          'Southeast Asian Studies',
+          'Statistics',
+          'Theatre and Performance Studies',
+        ],
+      },
+      {
+        id: 'ppe',
+        title: 'Philosophy, Politics and Economics (PPE)',
+        previousTitles: ['Philosophy, Politics and Economics'],
+      },
     ],
   },
   {
     id: 'law',
     title: 'Faculty of Law',
     previousTitles: ['Law'],
+    degrees: [{ id: 'law', title: 'Law' }],
+  },
+  {
+    id: 'medicine',
+    title: 'Yong Loo Lin School of Medicine',
+    previousTitles: ['Medicine'],
+    degrees: [{ id: 'medicine', title: 'Medicine' }],
+  },
+  {
+    id: 'music',
+    title: 'Yong Siew Toh Conservatory of Music',
+    previousTitles: ['Music'],
+    degrees: [{ id: 'music', title: 'Music' }],
+  },
+  {
+    id: 'nursing',
+    title: 'Nursing',
+    previousIds: ['medicine'],
+    previousTitles: [
+      'Yong Loo Lin School of Medicine',
+      'Yong Loo Lin School of Medicine - Nursing',
+    ],
+    degrees: [{ id: 'nursing', title: 'Nursing' }],
+  },
+  {
+    id: 'pharmacy',
+    title: 'Faculty of Pharmacy and Pharmaceutical Sciences',
+    previousIds: ['science'],
+    previousTitles: [
+      'Faculty of Science',
+      'Faculty of Science - Pharmacy and Pharmaceutical Sciences',
+      'Pharmacy',
+    ],
     degrees: [
-      { id: 'law', title: 'Law' },
+      { id: 'pharmacy', title: 'Pharmacy' },
+      {
+        id: 'pharmaceutical-science',
+        title: 'Pharmaceutical Science',
+      },
     ],
   },
   {
     id: 'nus-college',
     title: 'NUS College',
-    degrees: [
-      { id: 'nus-college', title: 'NUS College' },
-    ],
-  },
-  {
-    id: 'dentistry',
-    title: 'Faculty of Dentistry',
-    previousTitles: ['Dentistry'],
-    degrees: [
-      { id: 'dentistry', title: 'Dentistry' },
-    ],
+    degrees: [{ id: 'nus-college', title: 'NUS College' }],
   },
 ];
 
@@ -311,6 +261,18 @@ export function getPopularChoiceFacultyForProfile(
   );
 }
 
+export function getPopularChoiceFacultyFilterValues(
+  faculty: PopularChoiceFaculty,
+) {
+  return uniqueFilterValues([faculty.title, ...(faculty.previousTitles ?? [])]);
+}
+
+export function getPopularChoiceDegreeFilterValues(
+  degree: PopularChoiceDegree,
+) {
+  return uniqueFilterValues([degree.title, ...(degree.previousTitles ?? [])]);
+}
+
 function matchesFaculty(faculty: PopularChoiceFaculty, value: string) {
   return (
     faculty.id === value ||
@@ -328,45 +290,12 @@ function matchesDegree(degree: PopularChoiceDegree, value: string) {
   );
 }
 
-export function getRankedDegreePlanGroups(
-  faculty: PopularChoiceFaculty,
-  degree: PopularChoiceDegree,
-): RankedDegreePlanGroups {
-  const plans = buildPlansForDegree(faculty, degree);
-  const oneYearAgo = rankingReferenceTime - 365 * 24 * 60 * 60 * 1000;
-
-  return {
-    mostPopular: [...plans].sort((left, right) => right.views - left.views),
-    highestRated: [...plans].sort((left, right) => right.likes - left.likes),
-    upAndComing: [...plans]
-      .filter((plan) => new Date(plan.createdAt).getTime() >= oneYearAgo)
-      .sort((left, right) => right.views - left.views),
-  };
-}
-
-function buildPlansForDegree(
-  faculty: PopularChoiceFaculty,
-  degree: PopularChoiceDegree,
-): PopularChoicePlan[] {
-  const degreeWeight = degree.id.length + faculty.id.length;
-
-  return planTitlePrefixes.map((prefix, index) => {
-    const views = 1800 + ((degreeWeight * 463 + index * 791) % 42000);
-    const likes = 32 + ((degreeWeight * 97 + index * 137) % 2600);
-
-    return {
-      id: `${faculty.id}-${degree.id}-${index + 1}`,
-      facultyId: faculty.id,
-      degreeId: degree.id,
-      title: `${prefix} ${degree.title} Plan`,
-      likes,
-      views,
-      createdAt: toIsoDate(recentPlanAgesInDays[index] ?? 120),
-      coverPalette: coverPalettes[index % coverPalettes.length],
-    };
-  });
-}
-
-function toIsoDate(daysAgo: number) {
-  return new Date(rankingReferenceTime - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+function uniqueFilterValues(values: string[]) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    ),
+  );
 }

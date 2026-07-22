@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, GraduationCap, Star } from 'lucide-react';
+import { ArrowLeft, BookOpen, GraduationCap, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import type { UIEvent } from 'react';
@@ -20,10 +20,6 @@ import { PrerequisiteTree } from './components/PrerequisiteTree';
 import { formatCourseDateTime } from './course-utils';
 
 type CoursesPageProps = {
-  selectedModuleCode?: string | null;
-};
-
-type ModuleCatalogProps = {
   selectedModuleCode?: string | null;
 };
 
@@ -57,7 +53,19 @@ function getReviewAuthor(review: ModuleReview) {
   return review.user?.username?.trim() || 'NUS student';
 }
 
-function ModuleCatalog({ selectedModuleCode }: ModuleCatalogProps) {
+function CourseBackLink() {
+  return (
+    <Link
+      href="/courses"
+      className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-orange-700 hover:text-orange-800"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      All courses
+    </Link>
+  );
+}
+
+export function CourseCatalog() {
   const [modules, setModules] = useState<NusModuleListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -156,38 +164,30 @@ function ModuleCatalog({ selectedModuleCode }: ModuleCatalogProps) {
           </p>
         ) : (
           <div className="grid gap-2">
-            {modules.map((module) => {
-              const isSelected = selectedModuleCode === module.moduleCode;
-
-              return (
-                <Link
-                  key={module.moduleCode}
-                  href={`/courses?module=${encodeURIComponent(module.moduleCode)}`}
-                  className={`rounded-md border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-orange-300 ${
-                    isSelected
-                      ? 'border-orange-300 bg-orange-50'
-                      : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/60'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-bold text-orange-600">
-                        {module.moduleCode}
-                      </p>
-                      <p className="mt-1 break-words text-sm font-bold text-gray-950">
-                        {module.title}
-                      </p>
-                    </div>
-                    <span className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-bold text-gray-600">
-                      {module.moduleCredit} MC
-                    </span>
+            {modules.map((module) => (
+              <Link
+                key={module.moduleCode}
+                href={`/courses/${encodeURIComponent(module.moduleCode)}`}
+                className="rounded-md border border-gray-200 bg-white p-3 text-left transition hover:border-orange-200 hover:bg-orange-50/60 focus:outline-none focus:ring-2 focus:ring-orange-300"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold text-orange-600">
+                      {module.moduleCode}
+                    </p>
+                    <p className="mt-1 break-words text-sm font-bold text-gray-950">
+                      {module.title}
+                    </p>
                   </div>
-                  <p className="mt-2 max-h-16 overflow-hidden text-sm leading-5 text-gray-600">
-                    {module.description || 'No description available.'}
-                  </p>
-                </Link>
-              );
-            })}
+                  <span className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-bold text-gray-600">
+                    {module.moduleCredit} MC
+                  </span>
+                </div>
+                <p className="mt-2 max-h-16 overflow-hidden text-sm leading-5 text-gray-600">
+                  {module.description || 'No description available.'}
+                </p>
+              </Link>
+            ))}
 
             {moduleListError ? (
               <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
@@ -218,7 +218,7 @@ function ModuleCatalog({ selectedModuleCode }: ModuleCatalogProps) {
   );
 }
 
-export function CoursesPage({ selectedModuleCode }: CoursesPageProps) {
+export function CourseDetail({ selectedModuleCode }: CoursesPageProps) {
   const [module, setModule] = useState<NusModuleDetail | null>(null);
   const [reviews, setReviews] = useState<ModuleReview[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -275,10 +275,9 @@ export function CoursesPage({ selectedModuleCode }: CoursesPageProps) {
   const courseDetail = (() => {
     if (!selectedModuleCode) {
       return (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-gray-900 shadow-sm">
+        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 shadow-sm">
           <p className="text-sm font-medium text-gray-500">
-            Select a module from the catalog to view prerequisites, semester
-            availability, S/U status, and reviews.
+            Select a module from the catalog to view details.
           </p>
         </div>
       );
@@ -287,6 +286,7 @@ export function CoursesPage({ selectedModuleCode }: CoursesPageProps) {
     if (isLoading) {
       return (
         <div className="rounded-lg border border-gray-200 bg-white p-6 text-gray-900 shadow-sm">
+          <CourseBackLink />
           <p className="text-sm font-medium text-gray-500">
             Loading {selectedModuleCode} details...
           </p>
@@ -297,6 +297,7 @@ export function CoursesPage({ selectedModuleCode }: CoursesPageProps) {
     if (errorMessage || !module) {
       return (
         <div className="rounded-lg border border-red-200 bg-white p-6 text-gray-900 shadow-sm">
+          <CourseBackLink />
           <h1 className="text-2xl font-bold text-gray-950">
             {selectedModuleCode}
           </h1>
@@ -308,8 +309,9 @@ export function CoursesPage({ selectedModuleCode }: CoursesPageProps) {
     }
 
     return (
-      <div className="grid gap-5">
+      <div className="grid gap-5 text-gray-900">
         <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <CourseBackLink />
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
@@ -404,10 +406,9 @@ export function CoursesPage({ selectedModuleCode }: CoursesPageProps) {
     );
   })();
 
-  return (
-    <div className="grid items-start gap-5 text-gray-900 xl:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
-      <ModuleCatalog selectedModuleCode={selectedModuleCode} />
-      <div className="min-w-0">{courseDetail}</div>
-    </div>
-  );
+  return courseDetail;
+}
+
+export function CoursesPage() {
+  return <CourseCatalog />;
 }

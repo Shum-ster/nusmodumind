@@ -8,7 +8,9 @@ describe('PublicPlansController', () => {
   let service: {
     create: jest.Mock;
     findAll: jest.Mock;
+    findCurrentUserPlan: jest.Mock;
     findOne: jest.Mock;
+    update: jest.Mock;
     remove: jest.Mock;
   };
 
@@ -22,7 +24,10 @@ describe('PublicPlansController', () => {
     title: 'Four-year CS plan',
     description: 'Balanced workload',
     planSnapshot: { semesters: [] },
+    planImageDataUrl: 'data:image/png;base64,plan',
+    coverImageDataUrl: null,
     upvotes: 3,
+    viewCount: 12,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
   };
 
@@ -30,7 +35,9 @@ describe('PublicPlansController', () => {
     service = {
       create: jest.fn().mockResolvedValue(plan),
       findAll: jest.fn().mockResolvedValue([plan]),
+      findCurrentUserPlan: jest.fn().mockResolvedValue(plan),
       findOne: jest.fn().mockResolvedValue(plan),
+      update: jest.fn().mockResolvedValue(plan),
       remove: jest.fn().mockResolvedValue(plan),
     };
 
@@ -51,6 +58,8 @@ describe('PublicPlansController', () => {
       title: plan.title,
       description: plan.description,
       planSnapshot: plan.planSnapshot,
+      planImageDataUrl: plan.planImageDataUrl,
+      coverImageDataUrl: plan.coverImageDataUrl,
     };
 
     await expect(controller.create(user, dto)).resolves.toEqual(plan);
@@ -61,6 +70,8 @@ describe('PublicPlansController', () => {
     await expect(controller.findAll()).resolves.toEqual([plan]);
     expect(service.findAll).toHaveBeenCalledWith({
       degree: undefined,
+      degrees: undefined,
+      faculties: undefined,
       faculty: undefined,
     });
   });
@@ -71,13 +82,44 @@ describe('PublicPlansController', () => {
     ).resolves.toEqual([plan]);
     expect(service.findAll).toHaveBeenCalledWith({
       degree: 'Computer Science',
+      degrees: undefined,
+      faculties: undefined,
       faculty: 'Computing',
+    });
+  });
+
+  it('passes marketplace alias filters to the service', async () => {
+    await expect(
+      controller.findAll(
+        undefined,
+        undefined,
+        'School of Computing|Computing',
+        'Common Computer Science Programmes|Computer Science',
+      ),
+    ).resolves.toEqual([plan]);
+    expect(service.findAll).toHaveBeenCalledWith({
+      degree: undefined,
+      degrees: ['Common Computer Science Programmes', 'Computer Science'],
+      faculties: ['School of Computing', 'Computing'],
+      faculty: undefined,
     });
   });
 
   it('finds one public plan', async () => {
     await expect(controller.findOne(plan.id)).resolves.toEqual(plan);
     expect(service.findOne).toHaveBeenCalledWith(plan.id);
+  });
+
+  it('finds the current user public plan', async () => {
+    await expect(controller.findCurrentUserPlan(user)).resolves.toEqual(plan);
+    expect(service.findCurrentUserPlan).toHaveBeenCalledWith(user.id);
+  });
+
+  it('updates a public plan for the current user', async () => {
+    const dto = { title: 'Updated plan' };
+
+    await expect(controller.update(user, plan.id, dto)).resolves.toEqual(plan);
+    expect(service.update).toHaveBeenCalledWith(user.id, plan.id, dto);
   });
 
   it('removes a public plan for the current user', async () => {

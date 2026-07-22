@@ -8,7 +8,9 @@ export const planAuthorSelect = {
 
 export type FindAllPublicPlansOptions = {
   degree?: string;
+  degrees?: string[];
   faculty?: string;
+  faculties?: string[];
 };
 
 export type PublicPlanListItem = Prisma.PublicPlanGetPayload<{

@@ -107,13 +107,16 @@ model ModuleReview {
 }
 
 model PublicPlan {
-  id           String   @id @default(uuid()) @db.Uuid
-  authorId     String   @map("author_id") @db.Uuid
-  title        String
-  description  String?  @db.Text
-  planSnapshot Json     @map("plan_snapshot") // Stores the frozen state of the user's semesters
-  upvotes      Int      @default(0)
-  createdAt    DateTime @default(now()) @map("created_at")
+  id                String   @id @default(uuid()) @db.Uuid
+  authorId          String   @unique @map("author_id") @db.Uuid
+  title             String
+  description       String?  @db.Text
+  planSnapshot      Json     @map("plan_snapshot") // Stores the frozen state of the user's semesters
+  planImageDataUrl  String?  @map("plan_image_data_url") @db.Text
+  coverImageDataUrl String?  @map("cover_image_data_url") @db.Text
+  upvotes           Int      @default(0)
+  viewCount         Int      @default(0) @map("view_count")
+  createdAt         DateTime @default(now()) @map("created_at")
 
   author  User         @relation("AuthoredPlans", fields: [authorId], references: [id], onDelete: Cascade)
   reviews PlanReview[]

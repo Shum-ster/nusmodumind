@@ -3,8 +3,10 @@ import { useDashboardModuleSelection } from '../../DashboardModuleSelectionConte
 import { getDashboardModuleDropData, setDashboardModuleDragData } from '../../dashboard-drag';
 import {
   calculateGpa,
+  csCuGradeValues,
   dashboardGradeValues,
   formatGpa,
+  isModuleCsCuGraded,
   suGradeValues,
   type DashboardGrade,
 } from '../../dashboard-grades';
@@ -91,52 +93,55 @@ export function DashboardSemesterLayout({ semesterName, semesterKey, modules }: 
 
       <div className="grid content-start gap-2 overflow-y-auto pr-1">
         {modules.length > 0 ? (
-          modules.map((module) => (
-            <div
-              key={module.code}
-              draggable={!isCompleted}
-              onDragStart={(event) => {
-                setDashboardModuleDragData(event, module);
-              }}
-              className={isCompleted ? '' : 'cursor-grab active:cursor-grabbing'}
-            >
-              <div className={isCompleted ? 'grid grid-cols-[minmax(0,1fr)_7.5rem] items-center gap-2' : ''}>
-                <DashboardModuleCard module={module} showMetrics={!isCompleted} />
-                {isCompleted && (
-                  <select
-                    value={module.actualGrade ?? ''}
-                    onChange={(event) => {
-                      const nextGrade = event.target.value
-                        ? event.target.value as DashboardGrade
-                        : null;
+          modules.map((module) => {
+            const gradeOptions = getModuleGradeOptions(module);
+            const selectedGrade = gradeOptions.some(
+              (gradeOption) => gradeOption.value === module.actualGrade,
+            )
+              ? module.actualGrade
+              : '';
 
-                      updateModuleActualGrade(module.code, nextGrade);
-                    }}
-                    aria-label={`Select grade for ${module.code}`}
-                    className="h-10 w-full rounded border border-gray-300 bg-white px-2 text-sm font-semibold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                  >
-                    <option value="">Grade</option>
-                    {dashboardGradeValues.map((grade) => (
-                      <option key={grade} value={grade}>
-                        {grade === 'F' ? 'Fail' : grade}
-                      </option>
-                    ))}
-                    {module.isSuEligible &&
-                      suGradeValues.map((grade) => (
-                        <option key={grade} value={grade}>
-                          {grade === 'S' ? 'S/U Pass' : 'S/U Fail'}
+            return (
+              <div
+                key={module.code}
+                draggable={!isCompleted}
+                onDragStart={(event) => {
+                  setDashboardModuleDragData(event, module);
+                }}
+                className={isCompleted ? '' : 'cursor-grab active:cursor-grabbing'}
+              >
+                <div className={isCompleted ? 'grid grid-cols-[minmax(0,1fr)_7.5rem] items-center gap-2' : ''}>
+                  <DashboardModuleCard module={module} showMetrics={!isCompleted} />
+                  {isCompleted && (
+                    <select
+                      value={selectedGrade ?? ''}
+                      onChange={(event) => {
+                        const nextGrade = event.target.value
+                          ? event.target.value as DashboardGrade
+                          : null;
+
+                        updateModuleActualGrade(module.code, nextGrade);
+                      }}
+                      aria-label={`Select grade for ${module.code}`}
+                      className="h-10 w-full rounded border border-gray-300 bg-white px-2 text-sm font-semibold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    >
+                      <option value="">Grade</option>
+                      {gradeOptions.map((gradeOption) => (
+                        <option key={gradeOption.value} value={gradeOption.value}>
+                          {gradeOption.label}
                         </option>
                       ))}
-                  </select>
+                    </select>
+                  )}
+                </div>
+                {unsatisfiedModuleIssueByCode.has(module.code) && (
+                  <div className="mt-2">
+                    <UnsatisfiedModule issue={unsatisfiedModuleIssueByCode.get(module.code)!} />
+                  </div>
                 )}
               </div>
-              {unsatisfiedModuleIssueByCode.has(module.code) && (
-                <div className="mt-2">
-                  <UnsatisfiedModule issue={unsatisfiedModuleIssueByCode.get(module.code)!} />
-                </div>
-              )}
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="flex min-h-16 items-center justify-center rounded-md border border-dashed border-gray-300 px-4 text-center text-sm font-medium text-gray-500">
             No modules added yet.
@@ -145,4 +150,26 @@ export function DashboardSemesterLayout({ semesterName, semesterKey, modules }: 
       </div>
     </section>
   );
+}
+
+function getModuleGradeOptions(module: DashboardModule) {
+  if (isModuleCsCuGraded(module.gradingBasisDescription)) {
+    return csCuGradeValues.map((grade) => ({
+      label: grade === 'CS' ? 'Completed Satisfactory' : 'Completed Unsatisfactory',
+      value: grade,
+    }));
+  }
+
+  return [
+    ...dashboardGradeValues.map((grade) => ({
+      label: grade === 'F' ? 'Fail' : grade,
+      value: grade,
+    })),
+    ...(module.isSuEligible
+      ? suGradeValues.map((grade) => ({
+          label: grade === 'S' ? 'S/U Pass' : 'S/U Fail',
+          value: grade,
+        }))
+      : []),
+  ];
 }

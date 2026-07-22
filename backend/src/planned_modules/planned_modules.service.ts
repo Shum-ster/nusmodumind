@@ -111,6 +111,8 @@ export class PlannedModulesService {
       selectedLessons: plannedModuleDto.selectedLessons,
     };
 
+    await this.validateActualGradeForModule(data.moduleCode, data.actualGrade);
+
     if (data.status === PlannedModuleStatus.PLANNED) {
       if (!data.semesterId) {
         throw new BadRequestException('PLANNED modules require semesterId.');
@@ -124,6 +126,39 @@ export class PlannedModulesService {
       ...data,
       semesterId: null,
     };
+  }
+
+  private async validateActualGradeForModule(
+    moduleCode: string,
+    actualGrade?: string | null,
+  ) {
+    if (!actualGrade) {
+      return;
+    }
+
+    const module = await this.prisma.nusModule.findUnique({
+      where: { moduleCode },
+      select: { gradingBasisDescription: true },
+    });
+
+    if (!module) {
+      return;
+    }
+
+    const isCsCuGrade = actualGrade === 'CS' || actualGrade === 'CU';
+    const isCsCuModule = isModuleCsCuGraded(module.gradingBasisDescription);
+
+    if (isCsCuModule && !isCsCuGrade) {
+      throw new BadRequestException(
+        'CS/CU modules can only be graded as CS or CU.',
+      );
+    }
+
+    if (!isCsCuModule && isCsCuGrade) {
+      throw new BadRequestException(
+        'CS/CU grades can only be used for CS/CU modules.',
+      );
+    }
   }
 
   private async ensureSemesterBelongsToUser(
@@ -143,4 +178,13 @@ export class PlannedModulesService {
       throw new ForbiddenException("You cannot use another user's semester.");
     }
   }
+}
+
+function isModuleCsCuGraded(gradingBasisDescription?: string | null) {
+  return Boolean(
+    gradingBasisDescription &&
+    /CS\/CU|Completed Satisfactory|Completed Unsatisfactory/i.test(
+      gradingBasisDescription,
+    ),
+  );
 }

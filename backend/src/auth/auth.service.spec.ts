@@ -299,7 +299,7 @@ describe('AuthService', () => {
     expect(aiPlannerService.generateDegreeRequirements).toHaveBeenCalled();
   });
 
-  it('does not update the profile when OpenAI fails', async () => {
+  it('saves the profile without requirements when OpenAI fails', async () => {
     aiPlannerService.generateDegreeRequirements.mockRejectedValue(
       new Error('provider unavailable'),
     );
@@ -310,11 +310,25 @@ describe('AuthService', () => {
         degree: 'Computer Science',
         matriculationYear: 2024,
       }),
-    ).rejects.toThrow('provider unavailable');
+    ).resolves.toMatchObject({
+      faculty: 'School of Computing',
+      degree: 'Computer Science',
+      matriculationYear: 2024,
+      hasGraduationRequirements: false,
+      academicProfileChangeAllowedAt: null,
+    });
     expect(usersService.updateUser).not.toHaveBeenCalled();
     expect(
       usersService.updateUserIfAcademicProfileAllowed,
-    ).not.toHaveBeenCalled();
+    ).toHaveBeenCalledWith(
+      'user-id',
+      expect.any(Date),
+      expect.objectContaining({
+        faculty: 'School of Computing',
+        degree: 'Computer Science',
+        matriculationYear: 2024,
+      }),
+    );
   });
 
   it('rejects the losing concurrent academic update', async () => {

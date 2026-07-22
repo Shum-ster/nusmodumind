@@ -6,6 +6,7 @@ import type {
   PublicPlan,
   PublicPlanDetail,
   PublicPlansQuery,
+  UpdatePublicPlanBody,
 } from '@/shared/types';
 
 export type {
@@ -16,6 +17,7 @@ export type {
   PublicPlan,
   PublicPlanDetail,
   PublicPlansQuery,
+  UpdatePublicPlanBody,
 } from '@/shared/types';
 
 export function getPublicPlans(query: PublicPlansQuery = {}) {
@@ -26,9 +28,25 @@ export function getPublicPlan(id: string) {
   return apiRequest<PublicPlanDetail>(`/public-plans/${encodeURIComponent(id)}`);
 }
 
+export function getCurrentUserPublicPlan(token: string) {
+  return apiRequest<PublicPlanDetail | null>('/public-plans/me', { token });
+}
+
 export function createPublicPlan(token: string, body: CreatePublicPlanBody) {
   return apiRequest<PublicPlan>('/public-plans', {
     method: 'POST',
+    token,
+    body,
+  });
+}
+
+export function updatePublicPlan(
+  token: string,
+  id: string,
+  body: UpdatePublicPlanBody,
+) {
+  return apiRequest<PublicPlan>(`/public-plans/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
     token,
     body,
   });

@@ -168,12 +168,37 @@ export class AuthService {
       return this.toUserProfile(updatedUser);
     }
 
-    const graduationRequirements =
-      await this.aiPlannerService.generateDegreeRequirements({
-        faculty: nextFaculty!,
-        degree: nextDegree!,
-        matriculationYear: nextMatriculationYear,
-      });
+    const graduationRequirements = await this.generateRequirementsIfAvailable({
+      degree: nextDegree!,
+      faculty: nextFaculty!,
+      matriculationYear: nextMatriculationYear,
+    });
+
+    if (!graduationRequirements) {
+      const updatedUser =
+        await this.usersService.updateUserIfAcademicProfileAllowed(
+          userId,
+          now,
+          updateData,
+        );
+
+      if (!updatedUser) {
+        const latestUser = await this.usersService.findUserById(userId);
+
+        if (latestUser?.academicProfileChangeAllowedAt) {
+          throw createAcademicProfileCooldownException(
+            latestUser.academicProfileChangeAllowedAt,
+          );
+        }
+
+        throw new ConflictException(
+          'The academic profile changed in another request. Refresh and try again.',
+        );
+      }
+
+      return this.toUserProfile(updatedUser);
+    }
+
     const academicProfileChangeAllowedAt = new Date(
       now.getTime() + academicProfileCooldownMs,
     );
@@ -203,6 +228,18 @@ export class AuthService {
     }
 
     return this.toUserProfile(updatedUser);
+  }
+
+  private async generateRequirementsIfAvailable(input: {
+    degree: string;
+    faculty: string;
+    matriculationYear: number;
+  }) {
+    try {
+      return await this.aiPlannerService.generateDegreeRequirements(input);
+    } catch {
+      return null;
+    }
   }
 
   login(user: AuthenticatedUser): LoginResponse {
