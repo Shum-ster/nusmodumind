@@ -1,0 +1,41 @@
+@startuml Marketplace_Create_Public_Plan_Sequence
+
+title Marketplace - Create Public Plan
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "MarketplacePage" as MarketplacePage
+participant "marketplace-api.ts" as MarketplaceApi
+participant "JWT AuthGuard" as JwtGuard
+participant "PublicPlansController" as PublicPlansController
+participant "PublicPlansService" as PublicPlansService
+database "PostgreSQL" as DB
+
+Student -> MarketplacePage : Share current plan
+MarketplacePage -> MarketplacePage : Build title, description, and planSnapshot
+MarketplacePage -> MarketplaceApi : createPublicPlan(token, body)
+MarketplaceApi -> JwtGuard : POST /public-plans\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> MarketplaceApi : 401 Unauthorized
+    MarketplaceApi --> MarketplacePage : Display auth error
+else Token valid
+    JwtGuard -> PublicPlansController : create(currentUser, dto)
+    PublicPlansController -> PublicPlansService : create(user.id, dto)
+    PublicPlansService -> DB : INSERT public_plans with author_id
+    DB --> PublicPlansService : Created public plan
+    PublicPlansService --> PublicPlansController : Created public plan
+    PublicPlansController --> MarketplaceApi : 201 Created
+    MarketplaceApi --> MarketplacePage : Public plan
+    MarketplacePage --> Student : Show plan in marketplace
+end
+
+@enduml

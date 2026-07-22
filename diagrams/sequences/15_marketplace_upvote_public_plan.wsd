@@ -1,0 +1,54 @@
+@startuml Marketplace_Upvote_Public_Plan_Sequence
+
+title Marketplace - Upvote Public Plan
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "MarketplacePage" as MarketplacePage
+participant "marketplace-api.ts" as MarketplaceApi
+participant "JWT AuthGuard" as JwtGuard
+participant "PublicPlansController" as PublicPlansController
+participant "PublicPlansService" as PublicPlansService
+database "PostgreSQL" as DB
+
+note over MarketplaceApi, PublicPlansService #FFF3CD
+No upvote route currently exists in the repo.
+This diagram shows a proposed contract using the existing public_plans.upvotes field.
+end note
+
+Student -> MarketplacePage : Click upvote on public plan
+MarketplacePage -> MarketplaceApi : upvotePublicPlan(token, id)
+MarketplaceApi -> JwtGuard : POST /public-plans/:id/upvote\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> MarketplaceApi : 401 Unauthorized
+    MarketplaceApi --> MarketplacePage : Display auth error
+else Token valid
+    JwtGuard -> PublicPlansController : upvote(currentUser, id)
+    PublicPlansController -> PublicPlansService : upvote(user.id, id)
+    PublicPlansService -> DB : SELECT public_plan by id
+    DB --> PublicPlansService : public plan or null
+
+    alt Public plan not found
+        PublicPlansService --> PublicPlansController : NotFoundException
+        PublicPlansController --> MarketplaceApi : 404 Not Found
+    else Public plan exists
+        PublicPlansService -> DB : UPDATE public_plans\nSET upvotes = upvotes + 1
+        DB --> PublicPlansService : Updated public plan
+        PublicPlansService --> PublicPlansController : Updated public plan
+        PublicPlansController --> MarketplaceApi : 200 OK
+    end
+
+    MarketplaceApi --> MarketplacePage : Updated upvote count
+    MarketplacePage --> Student : Render incremented upvotes
+end
+
+@enduml

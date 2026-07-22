@@ -39,7 +39,19 @@ describe('AiPlannerController', () => {
     const aiPlannerService = {
       streamGeneralPrompt: jest
         .fn()
-        .mockReturnValue(createStringStream(['Consider ', 'CS2030S.'])),
+        .mockImplementation(
+          (
+            _userId: string,
+            _prompt: string,
+            _mode: AiPlannerPromptMode,
+            _signal: AbortSignal,
+            onProgress: (stage: 'searching' | 'ranking') => void,
+          ) => {
+            onProgress('searching');
+            onProgress('ranking');
+            return createStringStream(['Consider ', 'CS2030S.']);
+          },
+        ),
     };
     const controller = new AiPlannerController(
       aiPlannerService as unknown as AiPlannerService,
@@ -63,18 +75,29 @@ describe('AiPlannerController', () => {
     });
     expect(response.flushHeaders).toHaveBeenCalled();
     expect(response.chunks).toEqual([
+      'event: progress\ndata: {"stage":"searching"}\n\n',
+      'event: progress\ndata: {"stage":"ranking"}\n\n',
       'event: delta\ndata: {"text":"Consider "}\n\n',
       'event: delta\ndata: {"text":"CS2030S."}\n\n',
       'event: done\ndata: {}\n\n',
     ]);
     expect(response.end).toHaveBeenCalled();
     const streamCalls = aiPlannerService.streamGeneralPrompt.mock
-      .calls as Array<[string, string, AiPlannerPromptMode, AbortSignal]>;
+      .calls as Array<
+      [
+        string,
+        string,
+        AiPlannerPromptMode,
+        AbortSignal,
+        (stage: string) => void,
+      ]
+    >;
 
     expect(streamCalls[0][0]).toBe('user-id');
     expect(streamCalls[0][1]).toBe('What should I take next?');
     expect(streamCalls[0][2]).toBe(AiPlannerPromptMode.RECOMMEND_MODULES);
     expect(streamCalls[0][3]).toBeInstanceOf(AbortSignal);
+    expect(streamCalls[0][4]).toEqual(expect.any(Function));
   });
 
   it('sends provider failures as safe SSE error events', async () => {

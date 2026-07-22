@@ -5,17 +5,20 @@ type GeneralPromptStreamOptions = {
   mode: AiPlannerPromptMode;
   onDelta: (text: string) => void;
   onDone?: () => void;
+  onProgress?: (stage: AiPlannerProgressStage) => void;
   prompt: string;
   signal?: AbortSignal;
   token: string;
 };
 
 export type AiPlannerPromptMode = "chat" | "recommend_modules";
+export type AiPlannerProgressStage = "searching" | "ranking" | "generating";
 
 type GeneralPromptSseEvent =
   | { event: "delta"; data: { text: string } }
   | { event: "done"; data: Record<string, never> }
-  | { event: "error"; data: { message: string } };
+  | { event: "error"; data: { message: string } }
+  | { event: "progress"; data: { stage: AiPlannerProgressStage } };
 
 export function getDegreeRequirements(token: string) {
   return apiRequest<DegreeRequirementsResponse | null>(
@@ -28,6 +31,7 @@ export async function streamGeneralPrompt({
   mode,
   onDelta,
   onDone,
+  onProgress,
   prompt,
   signal,
   token,
@@ -72,6 +76,8 @@ export async function streamGeneralPrompt({
     buffer = consumeSseFrames(buffer, (event) => {
       if (event.event === "delta") {
         onDelta(event.data.text);
+      } else if (event.event === "progress") {
+        onProgress?.(event.data.stage);
       } else if (event.event === "done") {
         receivedDone = true;
         onDone?.();
@@ -143,6 +149,14 @@ function parseSseFrame(frame: string): GeneralPromptSseEvent | null {
   }
 
   if (
+    eventName === "progress" &&
+    isObject(data) &&
+    isAiPlannerProgressStage(data.stage)
+  ) {
+    return { event: "progress", data: { stage: data.stage } };
+  }
+
+  if (
     eventName === "error" &&
     isObject(data) &&
     typeof data.message === "string"
@@ -171,4 +185,10 @@ async function readErrorMessage(response: Response) {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
+}
+
+function isAiPlannerProgressStage(
+  value: unknown,
+): value is AiPlannerProgressStage {
+  return value === "searching" || value === "ranking" || value === "generating";
 }

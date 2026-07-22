@@ -1,0 +1,53 @@
+@startuml Marketplace_Create_Public_Plan_Comment_Sequence
+
+title Marketplace - Create Public Plan Comment
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "MarketplacePage" as MarketplacePage
+participant "marketplace-api.ts" as MarketplaceApi
+participant "JWT AuthGuard" as JwtGuard
+participant "PlanReviewsController" as PlanReviewsController
+participant "PlanReviewsService" as PlanReviewsService
+participant "PublicPlansService" as PublicPlansService
+database "PostgreSQL" as DB
+
+Student -> MarketplacePage : Submit comment/rating on public plan
+MarketplacePage -> MarketplaceApi : createPlanReview(token, body)
+MarketplaceApi -> JwtGuard : POST /plan-reviews\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> MarketplaceApi : 401 Unauthorized
+    MarketplaceApi --> MarketplacePage : Display auth error
+else Token valid
+    JwtGuard -> PlanReviewsController : create(currentUser, dto)
+    PlanReviewsController -> PlanReviewsService : create(user.id, dto)
+    PlanReviewsService -> PublicPlansService : findOne(publicPlanId)
+    PublicPlansService -> DB : SELECT public_plan by id
+    DB --> PublicPlansService : public plan or null
+
+    alt Public plan does not exist
+        PublicPlansService --> PlanReviewsService : NotFoundException
+        PlanReviewsService --> PlanReviewsController : BadRequestException
+        PlanReviewsController --> MarketplaceApi : 400 Bad Request
+    else Public plan exists
+        PublicPlansService --> PlanReviewsService : public plan
+        PlanReviewsService -> DB : INSERT plan_reviews
+        DB --> PlanReviewsService : Created plan review
+        PlanReviewsService --> PlanReviewsController : Created plan review
+        PlanReviewsController --> MarketplaceApi : 201 Created
+    end
+
+    MarketplaceApi --> MarketplacePage : Result or error
+    MarketplacePage --> Student : Refresh public plan comments
+end
+
+@enduml

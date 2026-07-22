@@ -57,3 +57,5 @@ export type RecommendationRankingContext = RecommendationBaseContext & {
   candidates: ValidatedModuleCandidate[];
   reviewsByModuleCode: Record<string, CandidateReviewContext>;
 };
+
+export type ModuleRecommendationProgressStage = 'searching' | 'ranking';

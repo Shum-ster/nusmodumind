@@ -21,6 +21,7 @@ import type {
   ModuleRecommendationsResponse,
 } from '../shared/types';
 import { AiPlannerService } from './ai-planner.service';
+import type { AiPlannerProgressStage } from './ai-planner.service';
 import { GeneralPromptDto } from './dto/general-prompt.dto';
 
 export const sseHeartbeatIntervalMs = 15_000;
@@ -67,6 +68,11 @@ export class AiPlannerController {
         generalPromptDto.prompt,
         generalPromptDto.mode,
         abortController.signal,
+        (stage) => {
+          if (!response.writableEnded && !response.destroyed) {
+            writeSseEvent(response, 'progress', { stage });
+          }
+        },
       )) {
         writeSseEvent(response, 'delta', { text: delta });
       }
@@ -110,8 +116,12 @@ export class AiPlannerController {
 
 function writeSseEvent(
   response: Response,
-  event: 'delta' | 'done' | 'error',
-  data: object,
+  event: 'delta' | 'done' | 'error' | 'progress',
+  data:
+    | object
+    | {
+        stage: AiPlannerProgressStage;
+      },
 ) {
   response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }

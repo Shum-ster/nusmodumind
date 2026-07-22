@@ -16,8 +16,12 @@ Treat prerequisite, preclusion, and corequisite text conservatively. Mark uncert
 Return up to 20 unique candidates. Return fewer only when the catalogue does not contain enough valid requirement-matching modules.
 `.trim();
 
-export function buildModuleCandidatesInput(context: RecommendationBaseContext) {
+export function buildModuleCandidatesInput(
+  context: RecommendationBaseContext,
+  userRequest: string,
+) {
   return JSON.stringify({
+    userRequest,
     targetSemester: context.targetSemester,
     addressedModuleCodes: context.addressedModuleCodes,
     completedModuleCodes: context.completedModuleCodes,
@@ -37,8 +41,12 @@ Provide concise user-facing justification, not hidden chain-of-thought. Put unce
 Return exactly five unique recommendations when at least five candidates are supplied; otherwise return every supplied candidate once.
 `.trim();
 
-export function buildModuleRankingInput(context: RecommendationRankingContext) {
+export function buildModuleRankingInput(
+  context: RecommendationRankingContext,
+  userRequest: string,
+) {
   return JSON.stringify({
+    userRequest,
     targetSemester: context.targetSemester,
     academicContext: {
       gpa: context.gpa,

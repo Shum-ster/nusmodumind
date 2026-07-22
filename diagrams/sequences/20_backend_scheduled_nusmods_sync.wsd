@@ -1,0 +1,35 @@
+@startuml Backend_Scheduled_NUSMods_Sync_Sequence
+
+title Backend Jobs - Scheduled NUSMods Sync
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+participant "Nest ScheduleModule" as ScheduleModule
+participant "NusModulesCronService" as CronService
+participant "HttpService" as HttpService
+participant "NUSMods API" as NUSModsApi
+database "PostgreSQL" as DB
+
+ScheduleModule -> CronService : Trigger handleScheduledSync()\nmidnight Asia/Singapore
+CronService -> CronService : syncNusModsData()
+CronService -> HttpService : GET NUSMods moduleInfo.json
+HttpService -> NUSModsApi : HTTPS request
+NUSModsApi --> HttpService : Module info array
+HttpService --> CronService : modules
+CronService -> CronService : Map NUSMods fields to NusModule data
+
+loop In batches of 500 modules
+    CronService -> DB : Transaction of nusModule.upsert operations
+    DB --> CronService : Batch upsert result
+end
+
+CronService -> CronService : Log sync completed
+
+@enduml

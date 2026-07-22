@@ -98,12 +98,14 @@ describe('AiPlannerService', () => {
 
   it('streams a trimmed general prompt as plain text', async () => {
     const abortController = new AbortController();
+    const progressStages: string[] = [];
     const deltas = await collectStream(
       service.streamGeneralPrompt(
         'user-id',
         '  What should I take next?  ',
         AiPlannerPromptMode.CHAT,
         abortController.signal,
+        (stage) => progressStages.push(stage),
       ),
     );
     const textGenerationCalls = openAiGateway.streamTextGeneration.mock
@@ -125,13 +127,26 @@ describe('AiPlannerService', () => {
     expect(request.promptVersion).toBe('general-prompt-v2');
     expect(textGenerationCalls[0][1]).toBe(abortController.signal);
     expect(moduleRecommendationService.generate).not.toHaveBeenCalled();
+    expect(progressStages).toEqual(['generating']);
   });
 
   it('runs recommendations only in explicit recommendation mode', async () => {
     const abortController = new AbortController();
-    moduleRecommendationService.generate.mockResolvedValue({
-      recommendations: [{ moduleCode: 'CS2103T' }],
-    });
+    moduleRecommendationService.generate.mockImplementation(
+      (
+        _userId: string,
+        _prompt: string,
+        _signal: AbortSignal,
+        onProgress: (stage: 'searching' | 'ranking') => void,
+      ) => {
+        onProgress('searching');
+        onProgress('ranking');
+        return Promise.resolve({
+          recommendations: [{ moduleCode: 'CS2103T' }],
+        });
+      },
+    );
+    const progressStages: string[] = [];
 
     await collectStream(
       service.streamGeneralPrompt(
@@ -139,6 +154,7 @@ describe('AiPlannerService', () => {
         '  Prefer project modules.  ',
         AiPlannerPromptMode.RECOMMEND_MODULES,
         abortController.signal,
+        (stage) => progressStages.push(stage),
       ),
     );
 
@@ -146,6 +162,7 @@ describe('AiPlannerService', () => {
       'user-id',
       'Prefer project modules.',
       abortController.signal,
+      expect.any(Function),
     );
     const recommendationRequest = (
       openAiGateway.streamTextGeneration.mock.calls as Array<
@@ -158,6 +175,7 @@ describe('AiPlannerService', () => {
     );
     expect(recommendationRequest.input).toContain('CS2103T');
     expect(recommendationRequest.input).toContain('Prefer project modules.');
+    expect(progressStages).toEqual(['searching', 'ranking', 'generating']);
   });
 
   it('generates requirements from the proposed academic identity', async () => {

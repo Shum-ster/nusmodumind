@@ -1,6 +1,9 @@
 "use client";
 
-import { streamGeneralPrompt } from "@/features/ai-planner";
+import {
+  streamGeneralPrompt,
+  type AiPlannerProgressStage,
+} from "@/features/ai-planner";
 import { getToken } from "@/features/auth/lib/token-storage";
 import {
   Bot,
@@ -8,11 +11,14 @@ import {
   LoaderCircle,
   Plus,
   Send,
+  Square,
   Upload,
   X,
 } from "lucide-react";
+import Markdown, { type Components } from "react-markdown";
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent, PointerEvent } from "react";
+import type { FormEvent, MouseEvent, PointerEvent } from "react";
+import remarkGfm from "remark-gfm";
 
 type ChatPosition = {
   x: number;
@@ -25,8 +31,80 @@ type ChatMessage = {
   role: "assistant" | "user";
 };
 
+type ActiveChatRequest = {
+  assistantMessageId: number;
+  isRecommendationMode: boolean;
+  prompt: string;
+  userMessageId: number;
+};
+
 const notificationDurationMs = 2400;
 let nextChatMessageId = 1;
+
+const assistantMarkdownComponents: Components = {
+  a: ({ children, ...props }) => (
+    <a
+      {...props}
+      className="font-medium text-orange-700 underline underline-offset-2"
+      rel="noreferrer"
+      target="_blank"
+    >
+      {children}
+    </a>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="my-2 border-l-2 border-orange-300 pl-3 text-gray-600">
+      {children}
+    </blockquote>
+  ),
+  code: ({ children }) => (
+    <code className="rounded bg-gray-200 px-1 py-0.5 font-mono text-xs">
+      {children}
+    </code>
+  ),
+  h1: ({ children }) => (
+    <h1 className="mb-2 mt-4 text-base font-bold first:mt-0">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mb-2 mt-4 text-sm font-bold first:mt-0">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mb-1.5 mt-3 text-sm font-semibold first:mt-0">{children}</h3>
+  ),
+  li: ({ children }) => <li className="pl-0.5">{children}</li>,
+  ol: ({ children }) => (
+    <ol className="my-2 list-decimal space-y-1 pl-5">{children}</ol>
+  ),
+  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+  pre: ({ children }) => (
+    <pre className="my-2 overflow-x-auto rounded-md bg-gray-900 p-3 text-xs text-gray-100">
+      {children}
+    </pre>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold text-gray-950">{children}</strong>
+  ),
+  table: ({ children }) => (
+    <div className="my-3 max-w-full overflow-x-auto rounded-md border border-gray-300">
+      <table className="min-w-[640px] border-collapse text-left text-xs">
+        {children}
+      </table>
+    </div>
+  ),
+  td: ({ children }) => (
+    <td className="border-b border-r border-gray-200 p-2 align-top last:border-r-0">
+      {children}
+    </td>
+  ),
+  th: ({ children }) => (
+    <th className="border-b border-r border-gray-300 bg-gray-200 p-2 font-semibold text-gray-900 last:border-r-0">
+      {children}
+    </th>
+  ),
+  ul: ({ children }) => (
+    <ul className="my-2 list-disc space-y-1 pl-5">{children}</ul>
+  ),
+};
 
 function getInitialChatPosition(): ChatPosition {
   if (typeof window === "undefined") {
@@ -44,11 +122,14 @@ export function DashboardActionButtons() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const notificationTimeoutRef = useRef<number | null>(null);
 
-  useEffect(() => () => {
-    if (notificationTimeoutRef.current) {
-      window.clearTimeout(notificationTimeoutRef.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (notificationTimeoutRef.current) {
+        window.clearTimeout(notificationTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   function showNotification(message: string) {
     setNotification(message);
@@ -110,15 +191,20 @@ type DashboardAiChatProps = {
 };
 
 function DashboardAiChat({ onClose }: DashboardAiChatProps) {
-  const [position, setPosition] = useState<ChatPosition>(getInitialChatPosition);
+  const [position, setPosition] = useState<ChatPosition>(
+    getInitialChatPosition,
+  );
   const [isDragging, setIsDragging] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isRecommendationMode, setIsRecommendationMode] = useState(false);
+  const [progressStage, setProgressStage] =
+    useState<AiPlannerProgressStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dragOffsetRef = useRef<ChatPosition>({ x: 0, y: 0 });
   const abortControllerRef = useRef<AbortController | null>(null);
+  const activeRequestRef = useRef<ActiveChatRequest | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -180,13 +266,37 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
     onClose();
   }
 
+  function handleStop(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    const activeRequest = activeRequestRef.current;
+
+    if (!activeRequest) {
+      return;
+    }
+
+    abortControllerRef.current?.abort();
+    activeRequestRef.current = null;
+    abortControllerRef.current = null;
+    setInput(activeRequest.prompt);
+    setIsRecommendationMode(activeRequest.isRecommendationMode);
+    setIsStreaming(false);
+    setProgressStage(null);
+    setError(null);
+    setMessages((currentMessages) =>
+      currentMessages.filter(
+        (message) =>
+          message.id !== activeRequest.userMessageId &&
+          message.id !== activeRequest.assistantMessageId,
+      ),
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const prompt =
       input.trim() ||
-      (isRecommendationMode
-        ? "Recommend modules for my next semester."
-        : "");
+      (isRecommendationMode ? "Recommend modules for my next semester." : "");
 
     if (!prompt || isStreaming) {
       return;
@@ -199,28 +309,39 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
       return;
     }
 
+    const requestIsRecommendationMode = isRecommendationMode;
+    const userMessageId = nextChatMessageId++;
     const assistantMessageId = nextChatMessageId++;
     const abortController = new AbortController();
     let output = "";
 
     abortControllerRef.current = abortController;
+    activeRequestRef.current = {
+      assistantMessageId,
+      isRecommendationMode: requestIsRecommendationMode,
+      prompt,
+      userMessageId,
+    };
     setError(null);
     setInput("");
     setIsStreaming(true);
+    setProgressStage(null);
     setMessages((currentMessages) => [
       ...currentMessages,
-      { content: prompt, id: nextChatMessageId++, role: "user" },
+      { content: prompt, id: userMessageId, role: "user" },
       { content: "", id: assistantMessageId, role: "assistant" },
     ]);
 
     try {
       await streamGeneralPrompt({
-        mode: isRecommendationMode ? "recommend_modules" : "chat",
+        mode: requestIsRecommendationMode ? "recommend_modules" : "chat",
         prompt,
         token,
         signal: abortController.signal,
+        onProgress: setProgressStage,
         onDelta: (text) => {
           output += text;
+          setProgressStage(null);
           setMessages((currentMessages) =>
             currentMessages.map((message) =>
               message.id === assistantMessageId
@@ -238,15 +359,19 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
         setError(getChatErrorMessage(streamError));
       }
     } finally {
-      if (!abortController.signal.aborted) {
+      const isCurrentRequest =
+        activeRequestRef.current?.assistantMessageId === assistantMessageId;
+
+      if (isCurrentRequest) {
+        activeRequestRef.current = null;
         setIsStreaming(false);
+        setProgressStage(null);
+        setIsRecommendationMode(false);
       }
 
       if (abortControllerRef.current === abortController) {
         abortControllerRef.current = null;
       }
-
-      setIsRecommendationMode(false);
     }
   }
 
@@ -290,10 +415,7 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-rows-[1fr_auto] bg-white">
-        <div
-          aria-live="polite"
-          className="min-h-0 overflow-y-auto px-3 py-4"
-        >
+        <div aria-live="polite" className="min-h-0 overflow-y-auto px-3 py-4">
           {messages.length === 0 ? (
             <div className="flex h-full items-center justify-center text-gray-300">
               <Bot className="h-7 w-7" />
@@ -312,7 +434,19 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
                   {message.role === "assistant" &&
                   !message.content &&
                   isStreaming ? (
-                    <LoaderCircle className="h-4 w-4 animate-spin text-orange-600" />
+                    <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                      <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-orange-600" />
+                      <span>{getProgressLabel(progressStage)}</span>
+                    </div>
+                  ) : message.role === "assistant" ? (
+                    <div className="min-w-0 leading-5">
+                      <Markdown
+                        remarkPlugins={[remarkGfm]}
+                        components={assistantMarkdownComponents}
+                      >
+                        {message.content}
+                      </Markdown>
+                    </div>
                   ) : (
                     <p className="whitespace-pre-wrap break-words">
                       {message.content}
@@ -360,21 +494,29 @@ function DashboardAiChat({ onClose }: DashboardAiChatProps) {
               aria-label="AI Planner prompt"
               className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-50 disabled:text-gray-500"
             />
-            <button
-              type="submit"
-              disabled={
-                isStreaming || (!input.trim() && !isRecommendationMode)
-              }
-              aria-label="Send"
-              title="Send"
-              className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-600 text-white transition hover:bg-orange-700 disabled:bg-gray-200 disabled:text-gray-500"
-            >
-              {isStreaming ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
+            {isStreaming ? (
+              <button
+                key="stop"
+                type="button"
+                onClick={handleStop}
+                aria-label="Stop generating"
+                title="Stop generating"
+                className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-800 text-white transition hover:bg-gray-950"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+              </button>
+            ) : (
+              <button
+                key="send"
+                type="submit"
+                disabled={!input.trim() && !isRecommendationMode}
+                aria-label="Send"
+                title="Send"
+                className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-600 text-white transition hover:bg-orange-700 disabled:bg-gray-200 disabled:text-gray-500"
+              >
                 <Send className="h-4 w-4" />
-              )}
-            </button>
+              </button>
+            )}
           </div>
         </form>
       </div>
@@ -386,4 +528,16 @@ function getChatErrorMessage(error: unknown) {
   return error instanceof Error
     ? error.message
     : "The AI response could not be generated.";
+}
+
+function getProgressLabel(stage: AiPlannerProgressStage | null) {
+  if (stage === "searching") {
+    return "Searching NUS modules...";
+  }
+
+  if (stage === "ranking") {
+    return "Ranking recommendations...";
+  }
+
+  return "Generating response...";
 }

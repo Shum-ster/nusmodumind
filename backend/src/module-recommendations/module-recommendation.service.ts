@@ -21,6 +21,7 @@ import {
 import { searchNusModulesTool } from './module-recommendation.tools';
 import type {
   CompactNusModule,
+  ModuleRecommendationProgressStage,
   RecommendationBaseContext,
   RecommendationRankingContext,
   ValidatedModuleCandidate,
@@ -33,6 +34,7 @@ const maximumCandidates = 20;
 const maximumToolRounds = 6;
 const cautionTextLimit = 500;
 const moduleCodePattern = /\b[A-Z]{2,4}\d{4}[A-Z]?\b/gi;
+const defaultUserRequest = 'Recommend modules for my next semester.';
 
 @Injectable()
 export class ModuleRecommendationService {
@@ -42,29 +44,44 @@ export class ModuleRecommendationService {
     private readonly nusModuleSearchService: NusModuleSearchService,
   ) {}
 
-  async generate(userId: string): Promise<ModuleRecommendationsResponse> {
+  async generate(
+    userId: string,
+    userRequest = defaultUserRequest,
+    signal?: AbortSignal,
+    onProgress?: (stage: ModuleRecommendationProgressStage) => void,
+  ): Promise<ModuleRecommendationsResponse> {
+    const normalizedUserRequest = userRequest.trim() || defaultUserRequest;
+
+    signal?.throwIfAborted();
+    onProgress?.('searching');
     const baseContext = await this.contextService.loadBaseContext(userId);
+    signal?.throwIfAborted();
     const searchedModules = new Map<string, CompactNusModule>();
-    const candidateResult = await this.openAiGateway.runStructuredToolWorkflow({
-      instructions: moduleCandidatesInstructions,
-      input: buildModuleCandidatesInput(baseContext),
-      promptVersion: moduleCandidatesPromptVersion,
-      reasoningEffort: 'low',
-      schema: moduleCandidateOutputSchema,
-      schemaName: 'module_candidates',
-      tool: searchNusModulesTool,
-      toolInputSchema: searchNusModulesInputSchema,
-      maxToolRounds: maximumToolRounds,
-      executeTool: async (input) => {
-        const modules = await this.nusModuleSearchService.search(input);
+    const candidateResult = await this.openAiGateway.runStructuredToolWorkflow(
+      {
+        instructions: moduleCandidatesInstructions,
+        input: buildModuleCandidatesInput(baseContext, normalizedUserRequest),
+        promptVersion: moduleCandidatesPromptVersion,
+        reasoningEffort: 'low',
+        schema: moduleCandidateOutputSchema,
+        schemaName: 'module_candidates',
+        tool: searchNusModulesTool,
+        toolInputSchema: searchNusModulesInputSchema,
+        maxToolRounds: maximumToolRounds,
+        executeTool: async (input) => {
+          signal?.throwIfAborted();
+          const modules = await this.nusModuleSearchService.search(input);
 
-        for (const module of modules) {
-          searchedModules.set(module.moduleCode, module);
-        }
+          for (const module of modules) {
+            searchedModules.set(module.moduleCode, module);
+          }
 
-        return { modules };
+          return { modules };
+        },
       },
-    });
+      signal,
+    );
+    signal?.throwIfAborted();
     const validatedCandidates = validateCandidates(
       candidateResult.data.candidates,
       searchedModules,
@@ -81,6 +98,7 @@ export class ModuleRecommendationService {
       baseContext,
       validatedCandidates,
     );
+    signal?.throwIfAborted();
 
     if (!rankingContext.candidates.length) {
       throw new UnprocessableEntityException(
@@ -88,14 +106,19 @@ export class ModuleRecommendationService {
       );
     }
 
-    const rankingResult = await this.openAiGateway.runStructuredGeneration({
-      instructions: moduleRankingInstructions,
-      input: buildModuleRankingInput(rankingContext),
-      promptVersion: moduleRankingPromptVersion,
-      reasoningEffort: 'medium',
-      schema: moduleRankingOutputSchema,
-      schemaName: 'module_ranking',
-    });
+    onProgress?.('ranking');
+    const rankingResult = await this.openAiGateway.runStructuredGeneration(
+      {
+        instructions: moduleRankingInstructions,
+        input: buildModuleRankingInput(rankingContext, normalizedUserRequest),
+        promptVersion: moduleRankingPromptVersion,
+        reasoningEffort: 'medium',
+        schema: moduleRankingOutputSchema,
+        schemaName: 'module_ranking',
+      },
+      signal,
+    );
+    signal?.throwIfAborted();
     const recommendations = buildRecommendations(
       rankingResult.data.recommendations,
       rankingContext,

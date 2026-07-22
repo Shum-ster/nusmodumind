@@ -1,0 +1,115 @@
+@startuml Academic_Planning_System_ERD
+
+title ERD for Academic Planning System
+
+hide circle
+top to bottom direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam nodesep 70
+skinparam ranksep 85
+skinparam entity {
+    BackgroundColor #FFFFFF
+    BorderColor #2F3A4A
+    FontColor #18202B
+}
+
+entity "nus_modules" as nus_modules {
+    * module_code : VARCHAR <<PK>>
+    --
+    title : VARCHAR
+    description : TEXT NULL
+    module_credit : TEXT
+    department : VARCHAR NULL
+    faculty : VARCHAR
+    grading_basis_description : VARCHAR NULL
+    prerequisite : TEXT NULL
+    preclusion : TEXT NULL
+    corequisite : TEXT NULL
+    workload : JSONB NULL
+    semester_data : JSONB NULL
+    attributes : JSONB NULL
+    last_updated : TIMESTAMP
+}
+
+entity "planned_modules" as planned_modules {
+    * id : UUID <<PK>>
+    --
+    semester_id : UUID <<FK, NULL>>
+    user_id : UUID <<FK>>
+    module_code : VARCHAR <<FK>>
+    status : PlannedModuleStatus
+    expected_grade : VARCHAR NULL
+    actual_grade : VARCHAR NULL
+    selected_lessons : JSONB NULL
+}
+
+entity "module_reviews" as module_reviews {
+    * id : UUID <<PK>>
+    --
+    user_id : UUID <<FK>>
+    module_code : VARCHAR <<FK>>
+    rating : INTEGER
+    content : TEXT
+    created_at : TIMESTAMP
+}
+
+entity "semesters" as semesters {
+    * id : UUID <<PK>>
+    --
+    acad_year : VARCHAR
+    semester_number : INTEGER
+    user_id : UUID <<FK>>
+}
+
+entity "users" as users {
+    * id : UUID <<PK>>
+    --
+    email : VARCHAR
+    password_hash : VARCHAR
+    username : VARCHAR NULL
+    faculty : VARCHAR NULL
+    degree : VARCHAR NULL
+}
+
+entity "public_plans" as public_plans {
+    * id : UUID <<PK>>
+    --
+    author_id : UUID <<FK>>
+    title : VARCHAR
+    description : TEXT
+    plan_snapshot : JSONB
+    upvotes : INTEGER
+    created_at : TIMESTAMP
+}
+
+entity "plan_reviews" as plan_reviews {
+    * id : UUID <<PK>>
+    --
+    user_id : UUID <<FK>>
+    public_plan_id : UUID <<FK>>
+    rating : INTEGER
+    content : TEXT
+    created_at : TIMESTAMP
+}
+
+' Layout hints only. Keep module-dependent tables as siblings below the
+' NUS catalog, then place user-owned sharing data further down.
+planned_modules -[hidden]right- module_reviews
+semesters -[hidden]right- users
+public_plans -[hidden]right- plan_reviews
+
+nus_modules ||--o{ planned_modules
+nus_modules ||--o{ module_reviews
+
+planned_modules }o--o| semesters
+
+semesters }o--|| users
+planned_modules }o--|| users
+module_reviews }o--|| users
+
+users ||--o{ public_plans
+users ||--o{ plan_reviews
+public_plans ||--o{ plan_reviews
+
+@enduml

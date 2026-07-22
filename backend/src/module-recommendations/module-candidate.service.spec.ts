@@ -62,6 +62,8 @@ describe('ModuleRecommendationService', () => {
   });
 
   it('discovers, validates, and ranks five canonical modules', async () => {
+    const abortController = new AbortController();
+    const progressStages: string[] = [];
     const searchedModules = [
       compactModule('CS2103T', [1, 2]),
       compactModule('CS4101', [1]),
@@ -122,6 +124,8 @@ describe('ModuleRecommendationService', () => {
     const result = await service.generate(
       'user-id',
       'Prefer software security modules with manageable workload.',
+      abortController.signal,
+      (stage) => progressStages.push(stage),
     );
 
     expect(contextService.loadRankingContext).toHaveBeenCalledWith(
@@ -170,8 +174,28 @@ describe('ModuleRecommendationService', () => {
     expect(candidateRequest.input).toContain(
       'Prefer software security modules with manageable workload.',
     );
+    expect(gateway.runStructuredToolWorkflow).toHaveBeenCalledWith(
+      expect.anything(),
+      abortController.signal,
+    );
+    expect(gateway.runStructuredGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      abortController.signal,
+    );
+    expect(progressStages).toEqual(['searching', 'ranking']);
     expect(rankingRequest.input).not.toContain('semesterData');
     expect(rankingRequest.input).not.toContain('selectedLessons');
+  });
+
+  it('stops before loading context when the request is already aborted', async () => {
+    const abortController = new AbortController();
+    abortController.abort();
+
+    await expect(
+      service.generate('user-id', 'Recommend modules.', abortController.signal),
+    ).rejects.toBeDefined();
+    expect(contextService.loadBaseContext).not.toHaveBeenCalled();
+    expect(gateway.runStructuredToolWorkflow).not.toHaveBeenCalled();
   });
 
   it('rejects candidates that were not returned by the search tool', async () => {

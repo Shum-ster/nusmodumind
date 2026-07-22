@@ -33,6 +33,8 @@ import {
   degreeRequirementsResponseSchema,
 } from './schemas/degree-requirements.schema';
 
+export type AiPlannerProgressStage = 'searching' | 'ranking' | 'generating';
+
 @Injectable()
 export class AiPlannerService {
   private readonly logger = new Logger(AiPlannerService.name);
@@ -54,6 +56,7 @@ export class AiPlannerService {
     prompt: string,
     mode: AiPlannerPromptMode,
     signal?: AbortSignal,
+    onProgress?: (stage: AiPlannerProgressStage) => void,
   ): AsyncGenerator<string> {
     let output = '';
     const normalizedPrompt = prompt.trim();
@@ -68,6 +71,7 @@ export class AiPlannerService {
                   userId,
                   normalizedPrompt,
                   signal,
+                  onProgress,
                 ),
             }),
             promptVersion: recommendationResponsePromptVersion,
@@ -77,6 +81,9 @@ export class AiPlannerService {
             input: normalizedPrompt,
             promptVersion: generalPromptVersion,
           };
+
+    signal?.throwIfAborted();
+    onProgress?.('generating');
 
     for await (const delta of this.openAiGateway.streamTextGeneration(
       generationRequest,

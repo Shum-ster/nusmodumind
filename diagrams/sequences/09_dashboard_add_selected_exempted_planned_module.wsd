@@ -1,0 +1,58 @@
+@startuml Dashboard_Add_Selected_Exempted_Planned_Module_Sequence
+
+title Dashboard / Planner - Add Selected, Exempted, Or Planned Module
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "DashboardPage" as DashboardPage
+participant "planner-api.ts" as PlannerApi
+participant "JWT AuthGuard" as JwtGuard
+participant "PlannedModulesController" as PlannedModulesController
+participant "PlannedModulesService" as PlannedModulesService
+database "PostgreSQL" as DB
+
+Student -> DashboardPage : Add module with status
+DashboardPage -> PlannerApi : createPlannedModule(token, body)
+PlannerApi -> JwtGuard : POST /planned-modules\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> PlannerApi : 401 Unauthorized
+    PlannerApi --> DashboardPage : Display auth error
+else Token valid
+    JwtGuard -> PlannedModulesController : create(currentUser, dto)
+    PlannedModulesController -> PlannedModulesService : create(user.id, dto)
+    PlannedModulesService -> PlannedModulesService : Normalize moduleCode and status
+
+    alt Status is PLANNED
+        PlannedModulesService -> PlannedModulesService : Require semesterId
+        PlannedModulesService -> DB : SELECT semester by id
+        DB --> PlannedModulesService : semester
+
+        alt Semester belongs to another user
+            PlannedModulesService --> PlannedModulesController : ForbiddenException
+            PlannedModulesController --> PlannerApi : 403 Forbidden
+        else Semester belongs to current user
+            PlannedModulesService -> DB : INSERT planned_modules with semester_id
+            DB --> PlannedModulesService : Created planned module
+        end
+    else Status is SELECTED or EXEMPTED
+        PlannedModulesService -> PlannedModulesService : Force semesterId to null
+        PlannedModulesService -> DB : INSERT planned_modules without semester_id
+        DB --> PlannedModulesService : Created planned module
+    end
+
+    PlannedModulesService --> PlannedModulesController : Created planned module with module and semester
+    PlannedModulesController --> PlannerApi : 201 Created
+    PlannerApi --> DashboardPage : Planned module record
+    DashboardPage --> Student : Render module in selected, exempted, or semester area
+end
+
+@enduml

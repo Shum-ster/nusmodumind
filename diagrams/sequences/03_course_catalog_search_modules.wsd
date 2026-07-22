@@ -1,0 +1,34 @@
+@startuml Course_Catalog_Search_Modules_Sequence
+
+title Course Catalog - Search Modules
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "CoursesPage" as CoursesPage
+participant "courses-api.ts" as CoursesApi
+participant "NusmoduleController" as NusmoduleController
+participant "NusmoduleService" as NusmoduleService
+database "PostgreSQL" as DB
+
+Student -> CoursesPage : Enter search/filter criteria
+CoursesPage -> CoursesApi : searchNusModules(query)
+CoursesApi -> NusmoduleController : GET /nusmodule?search&faculty&department&cursor&limit
+NusmoduleController -> NusmoduleService : findAll(options)
+NusmoduleService -> NusmoduleService : Normalize cursor, search, and limit
+NusmoduleService -> DB : SELECT matching nus_modules\nORDER BY module_code\nLIMIT limit + 1
+DB --> NusmoduleService : modules
+NusmoduleService -> NusmoduleService : Build items and nextCursor
+NusmoduleService --> NusmoduleController : { items, nextCursor }
+NusmoduleController --> CoursesApi : Search response
+CoursesApi --> CoursesPage : Module results
+CoursesPage --> Student : Render matching modules
+
+@enduml

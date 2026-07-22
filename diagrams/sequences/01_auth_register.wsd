@@ -1,0 +1,49 @@
+@startuml Auth_Register_Sequence
+
+title Auth - Register
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "AuthPage" as AuthPage
+participant "auth-api.ts" as AuthApi
+participant "AuthController" as AuthController
+participant "AuthService" as AuthService
+participant "UsersService" as UsersService
+participant "bcrypt" as Bcrypt
+database "PostgreSQL" as DB
+
+Student -> AuthPage : Submit email and password
+AuthPage -> AuthApi : register(credentials)
+AuthApi -> AuthController : POST /auth/register
+AuthController -> AuthService : register(registerDto)
+AuthService -> UsersService : findUserByEmail(email)
+UsersService -> DB : SELECT user by email
+DB --> UsersService : user or null
+
+alt Email already exists
+    UsersService --> AuthService : existing user
+    AuthService --> AuthController : ConflictException
+    AuthController --> AuthApi : 409 Conflict
+    AuthApi --> AuthPage : Display registration error
+else New email
+    AuthService -> Bcrypt : hash(password)
+    Bcrypt --> AuthService : passwordHash
+    AuthService -> UsersService : createUser({ email, passwordHash })
+    UsersService -> DB : INSERT users
+    DB --> UsersService : created user
+    UsersService --> AuthService : created user
+    AuthService --> AuthController : { id, email }
+    AuthController --> AuthApi : 201 Created
+    AuthApi --> AuthPage : Registered user
+    AuthPage --> Student : Show success / continue to login
+end
+
+@enduml
