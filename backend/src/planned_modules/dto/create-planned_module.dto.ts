@@ -29,6 +29,8 @@ const actualGradeValues = [
   'F',
   'S',
   'U',
+  'CS',
+  'CU',
 ] as const;
 
 export class CreatePlannedModuleDto {

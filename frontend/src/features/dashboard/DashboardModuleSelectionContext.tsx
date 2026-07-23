@@ -24,7 +24,7 @@ import {
 import { useUserProfile } from '@/features/user';
 import {
   isModuleSuEligible,
-  normalizeDashboardGrade,
+  normalizeModuleActualGrade,
   type DashboardGrade,
 } from './dashboard-grades';
 import type {
@@ -130,7 +130,11 @@ function toDashboardModule(
     faculty: plannedModule.module.faculty,
     credits: Number(plannedModule.module.moduleCredit) || 0,
     estimatedWorkload: getEstimatedWorkload(plannedModule.module.workload),
-    actualGrade: normalizeDashboardGrade(plannedModule.actualGrade),
+    gradingBasisDescription: plannedModule.module.gradingBasisDescription,
+    actualGrade: normalizeModuleActualGrade(
+      plannedModule.actualGrade,
+      plannedModule.module.gradingBasisDescription,
+    ),
     isSuEligible: isModuleSuEligible(plannedModule.module.attributes),
     prerequisite: plannedModule.module.prerequisite,
     semesterData: plannedModule.module.semesterData,

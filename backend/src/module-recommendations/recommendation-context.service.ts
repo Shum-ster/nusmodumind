@@ -278,7 +278,11 @@ function isPassingGrade(grade: string | null) {
   const normalizedGrade = grade.trim().toUpperCase();
   const gradePoint = getGradePoint(normalizedGrade);
 
-  return normalizedGrade === 'S' || (gradePoint !== null && gradePoint > 0);
+  return (
+    normalizedGrade === 'S' ||
+    normalizedGrade === 'CS' ||
+    (gradePoint !== null && gradePoint > 0)
+  );
 }
 
 function truncateReview(content: string) {

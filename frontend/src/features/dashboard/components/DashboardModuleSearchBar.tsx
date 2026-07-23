@@ -28,6 +28,7 @@ function toDashboardModule(module: NusModuleListItem): DashboardModule {
     faculty: module.faculty,
     credits: Number(module.moduleCredit) || 0,
     estimatedWorkload: getEstimatedWorkload(module.workload),
+    gradingBasisDescription: module.gradingBasisDescription,
     isSuEligible: isModuleSuEligible(module.attributes),
     prerequisite: module.prerequisite,
     semesterData: module.semesterData,

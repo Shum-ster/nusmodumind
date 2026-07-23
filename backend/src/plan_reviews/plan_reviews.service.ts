@@ -22,7 +22,9 @@ export class PlanReviewsService {
     createPlanReviewDto: CreatePlanReviewDto,
   ): Promise<PlanReview> {
     try {
-      await this.publicPlansService.findOne(createPlanReviewDto.publicPlanId);
+      await this.publicPlansService.findOneWithoutViewIncrement(
+        createPlanReviewDto.publicPlanId,
+      );
     } catch {
       throw new BadRequestException(
         'Cannot review a plan that does not exist.',

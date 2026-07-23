@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { PopularChoicePlan } from '../popularChoicesData';
+import type { PublicPlan } from '../popular-choices-api';
 import { DegreePlanCard } from './DegreePlanCard';
 
 const PAGE_SIZE = 5;
@@ -10,7 +10,7 @@ const PRELOAD_SIZE = 10;
 
 type DegreePlanRailProps = {
   title: string;
-  plans: PopularChoicePlan[];
+  plans: PublicPlan[];
 };
 
 export function DegreePlanRail({ title, plans }: DegreePlanRailProps) {

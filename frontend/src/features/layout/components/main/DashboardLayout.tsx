@@ -30,7 +30,9 @@ export function DashboardLayout({ children, onLogout }: DashboardLayoutProps) {
   const pathname = usePathname();
   const activePage = pathname.startsWith('/popular-choices/')
     ? 'popular-choices'
-    : (pageByPath[pathname] ?? 'dashboard');
+    : pathname.startsWith('/courses/')
+      ? 'courses'
+      : (pageByPath[pathname] ?? 'dashboard');
 
   return (
     <UserProfileProvider>

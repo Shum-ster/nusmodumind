@@ -34,6 +34,12 @@ export async function apiRequest<T>(
   const responseBody = await readResponse(response);
 
   if (!response.ok) {
+    if (response.status === 413) {
+      throw new Error(
+        "The submitted images are too large. Choose a smaller cover image or remove it and try again.",
+      );
+    }
+
     throw new Error(getErrorMessage(responseBody, "Request failed"));
   }
 

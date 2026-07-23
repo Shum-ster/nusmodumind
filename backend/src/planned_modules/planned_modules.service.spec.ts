@@ -15,6 +15,9 @@ describe('PlannedModulesService', () => {
     semester: {
       findUnique: jest.Mock;
     };
+    nusModule: {
+      findUnique: jest.Mock;
+    };
     plannedModule: {
       create: jest.Mock;
       findUnique: jest.Mock;
@@ -44,6 +47,11 @@ describe('PlannedModulesService', () => {
     prisma = {
       semester: {
         findUnique: jest.fn().mockResolvedValue(semester),
+      },
+      nusModule: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ gradingBasisDescription: 'Graded' }),
       },
       plannedModule: {
         create: jest.fn().mockResolvedValue(plannedModule),
@@ -209,6 +217,47 @@ describe('PlannedModulesService', () => {
       }) as unknown,
       include: { module: true, semester: true },
     });
+  });
+
+  it('allows CS/CU grades for a CS/CU module', async () => {
+    prisma.nusModule.findUnique.mockResolvedValueOnce({
+      gradingBasisDescription: 'CS/CU',
+    });
+
+    await expect(
+      service.update(userId, plannedModule.id, {
+        actualGrade: 'CS',
+      }),
+    ).resolves.toEqual(plannedModule);
+    expect(prisma.plannedModule.update).toHaveBeenCalledWith({
+      where: { id: plannedModule.id },
+      data: expect.objectContaining({
+        actualGrade: 'CS',
+      }) as unknown,
+      include: { module: true, semester: true },
+    });
+  });
+
+  it('rejects letter grades for a CS/CU module', async () => {
+    prisma.nusModule.findUnique.mockResolvedValueOnce({
+      gradingBasisDescription: 'CS/CU',
+    });
+
+    await expect(
+      service.update(userId, plannedModule.id, {
+        actualGrade: 'A-',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.plannedModule.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects CS/CU grades for a normally graded module', async () => {
+    await expect(
+      service.update(userId, plannedModule.id, {
+        actualGrade: 'CS',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.plannedModule.update).not.toHaveBeenCalled();
   });
 
   it('moves a planned module to selected and clears semesterId', async () => {
