@@ -5,6 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { firstValueFrom } from 'rxjs';
 import { Prisma } from '@prisma/client';
 import type { NusModsModuleInfo, NusModuleUpsertData } from '../shared/types';
+import { ModuleChangeDetectorService } from './module-change-detector.service';
+import { ModuleChangeNotificationService } from './module-change-notification.service';
+import type { FetchedNusModsModule } from './module-change.types';
 
 @Injectable()
 export class NusModulesCronService {
@@ -14,12 +17,18 @@ export class NusModulesCronService {
 
   private readonly NUSMODS_ACAD_YEAR =
     process.env.NUSMODS_ACAD_YEAR ?? '2026-2027';
+  private readonly PLANNING_ACAD_YEAR = this.NUSMODS_ACAD_YEAR.replace(
+    '-',
+    '/',
+  );
   private readonly NUSMODS_API_BASE_URL = `https://api.nusmods.com/v2/${this.NUSMODS_ACAD_YEAR}`;
   private readonly NUSMODS_MODULE_INFO_URL = `${this.NUSMODS_API_BASE_URL}/moduleInfo.json`;
 
   constructor(
     private readonly httpService: HttpService,
     private readonly prisma: PrismaService,
+    private readonly changeDetector: ModuleChangeDetectorService,
+    private readonly notificationService: ModuleChangeNotificationService,
   ) {}
 
   // This runs automatically at midnight every day
@@ -36,15 +45,17 @@ export class NusModulesCronService {
     this.logger.log('Initiating NUSMods data sync...');
 
     try {
+      const syncDate = new Date().toISOString().slice(0, 10);
       const modules = await this.fetchNusModsModules();
 
       this.logger.log(
         `Fetched ${modules.length} modules from NUSMods. Starting database upsert...`,
       );
 
-      await this.upsertNusModsModules(modules);
+      await this.upsertNusModsModules(modules, syncDate);
 
       this.logger.log('NUSMods data sync completed successfully.');
+      await this.notificationService.dispatchPending();
     } catch (error) {
       this.logger.error(
         'Failed to sync NUSMods data',
@@ -54,7 +65,7 @@ export class NusModulesCronService {
     }
   }
 
-  private async fetchNusModsModules(): Promise<NusModsModuleInfo[]> {
+  private async fetchNusModsModules(): Promise<FetchedNusModsModule[]> {
     const response = await firstValueFrom(
       this.httpService.get<NusModsModuleInfo[]>(this.NUSMODS_MODULE_INFO_URL),
     );
@@ -64,8 +75,8 @@ export class NusModulesCronService {
 
   private async fetchNusModsModuleDetails(
     moduleInfos: NusModsModuleInfo[],
-  ): Promise<NusModsModuleInfo[]> {
-    const moduleDetails: NusModsModuleInfo[] = [];
+  ): Promise<FetchedNusModsModule[]> {
+    const moduleDetails: FetchedNusModsModule[] = [];
 
     for (
       let index = 0;
@@ -97,7 +108,7 @@ export class NusModulesCronService {
 
   private async fetchNusModsModuleDetail(
     moduleInfo: NusModsModuleInfo,
-  ): Promise<NusModsModuleInfo> {
+  ): Promise<FetchedNusModsModule> {
     try {
       const response = await firstValueFrom(
         this.httpService.get<NusModsModuleInfo>(
@@ -107,58 +118,84 @@ export class NusModulesCronService {
         ),
       );
 
-      return response.data;
+      return {
+        moduleInfo: response.data,
+        hasDetailedSemesterData: true,
+      };
     } catch (error) {
       this.logger.warn(
         `Failed to fetch detailed NUSMods data for ${moduleInfo.moduleCode}. Falling back to moduleInfo entry.`,
         error instanceof Error ? error.stack : undefined,
       );
 
-      return moduleInfo;
+      return {
+        moduleInfo,
+        hasDetailedSemesterData: false,
+      };
     }
   }
 
-  private async upsertNusModsModules(modules: NusModsModuleInfo[]) {
+  private async upsertNusModsModules(
+    modules: FetchedNusModsModule[],
+    syncDate: string,
+  ) {
     let processedCount = 0;
 
     for (let i = 0; i < modules.length; i += this.databaseBatchSize) {
       const batch = modules.slice(i, i + this.databaseBatchSize);
-      const rows = batch.map((moduleInfo) =>
-        this.buildBulkUpsertRow(moduleInfo),
+      const existingModules = await this.prisma.nusModule.findMany({
+        where: {
+          moduleCode: {
+            in: batch.map(({ moduleInfo }) => moduleInfo.moduleCode),
+          },
+        },
+        select: {
+          moduleCode: true,
+          title: true,
+          moduleCredit: true,
+          gradingBasisDescription: true,
+          prerequisite: true,
+          preclusion: true,
+          corequisite: true,
+          workload: true,
+          semesterData: true,
+          attributes: true,
+        },
+      });
+      const existingByModuleCode = new Map(
+        existingModules.map((module) => [module.moduleCode, module]),
       );
-
-      await this.prisma.$executeRaw(Prisma.sql`
-        INSERT INTO "nus_modules" (
-          "module_code",
-          "title",
-          "description",
-          "module_credit",
-          "department",
-          "faculty",
-          "grading_basis_description",
-          "prerequisite",
-          "preclusion",
-          "corequisite",
-          "workload",
-          "semester_data",
-          "attributes"
+      const detectedChanges = batch
+        .map((module) =>
+          this.changeDetector.detect(
+            existingByModuleCode.get(module.moduleInfo.moduleCode),
+            module,
+          ),
         )
-        VALUES ${Prisma.join(rows)}
-        ON CONFLICT ("module_code") DO UPDATE SET
-          "title" = EXCLUDED."title",
-          "description" = EXCLUDED."description",
-          "module_credit" = EXCLUDED."module_credit",
-          "department" = EXCLUDED."department",
-          "faculty" = EXCLUDED."faculty",
-          "grading_basis_description" = EXCLUDED."grading_basis_description",
-          "prerequisite" = EXCLUDED."prerequisite",
-          "preclusion" = EXCLUDED."preclusion",
-          "corequisite" = EXCLUDED."corequisite",
-          "workload" = EXCLUDED."workload",
-          "semester_data" = EXCLUDED."semester_data",
-          "attributes" = EXCLUDED."attributes",
-          "last_updated" = CURRENT_TIMESTAMP
-      `);
+        .filter((change) => change !== null);
+      const notificationDrafts = await this.notificationService.buildDrafts(
+        detectedChanges,
+        this.PLANNING_ACAD_YEAR,
+        syncDate,
+      );
+      const rows = batch.map((module) => this.buildBulkUpsertRow(module));
+      const upsertQuery = this.buildBulkUpsertQuery(rows);
+
+      await this.prisma.$transaction(
+        async (transaction) => {
+          await transaction.$executeRaw(upsertQuery);
+
+          if (notificationDrafts.length > 0) {
+            await transaction.moduleUpdateNotification.createMany({
+              data: notificationDrafts,
+              skipDuplicates: true,
+            });
+          }
+        },
+        {
+          timeout: 30_000,
+        },
+      );
 
       processedCount += batch.length;
       this.logger.log(
@@ -167,8 +204,50 @@ export class NusModulesCronService {
     }
   }
 
-  private buildBulkUpsertRow(moduleInfo: NusModsModuleInfo) {
+  private buildBulkUpsertQuery(rows: Prisma.Sql[]) {
+    return Prisma.sql`
+      INSERT INTO "nus_modules" (
+        "module_code",
+        "title",
+        "description",
+        "module_credit",
+        "department",
+        "faculty",
+        "grading_basis_description",
+        "prerequisite",
+        "preclusion",
+        "corequisite",
+        "workload",
+        "semester_data",
+        "attributes"
+      )
+      VALUES ${Prisma.join(rows)}
+      ON CONFLICT ("module_code") DO UPDATE SET
+        "title" = EXCLUDED."title",
+        "description" = EXCLUDED."description",
+        "module_credit" = EXCLUDED."module_credit",
+        "department" = EXCLUDED."department",
+        "faculty" = EXCLUDED."faculty",
+        "grading_basis_description" = EXCLUDED."grading_basis_description",
+        "prerequisite" = EXCLUDED."prerequisite",
+        "preclusion" = EXCLUDED."preclusion",
+        "corequisite" = EXCLUDED."corequisite",
+        "workload" = EXCLUDED."workload",
+        "semester_data" = COALESCE(
+          EXCLUDED."semester_data",
+          "nus_modules"."semester_data"
+        ),
+        "attributes" = EXCLUDED."attributes",
+        "last_updated" = CURRENT_TIMESTAMP
+    `;
+  }
+
+  private buildBulkUpsertRow(fetched: FetchedNusModsModule) {
+    const { moduleInfo } = fetched;
     const moduleData = this.mapNusModsModule(moduleInfo);
+    const semesterData = fetched.hasDetailedSemesterData
+      ? (moduleInfo.semesterData ?? [])
+      : null;
 
     return Prisma.sql`(
       ${moduleInfo.moduleCode},
@@ -182,7 +261,7 @@ export class NusModulesCronService {
       ${moduleData.preclusion},
       ${moduleData.corequisite},
       ${this.serializeJson(moduleInfo.workload)}::jsonb,
-      ${this.serializeJson(moduleInfo.semesterData ?? [])}::jsonb,
+      ${this.serializeJson(semesterData)}::jsonb,
       ${this.serializeJson(moduleInfo.attributes)}::jsonb
     )`;
   }

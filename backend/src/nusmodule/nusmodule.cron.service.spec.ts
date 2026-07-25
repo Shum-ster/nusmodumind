@@ -4,12 +4,26 @@ import { of, throwError } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { NusModulesCronService } from './nusmodule.cron.service';
 import { Prisma } from '@prisma/client';
+import { ModuleChangeDetectorService } from './module-change-detector.service';
+import { ModuleChangeNotificationService } from './module-change-notification.service';
 
 describe('NusModulesCronService', () => {
   let service: NusModulesCronService;
   let httpService: { get: jest.Mock };
   let prisma: {
+    nusModule: { findMany: jest.Mock };
+    $transaction: jest.Mock;
+  };
+  let transaction: {
     $executeRaw: jest.Mock;
+    moduleUpdateNotification: { createMany: jest.Mock };
+  };
+  let changeDetector: {
+    detect: jest.Mock;
+  };
+  let notificationService: {
+    buildDrafts: jest.Mock;
+    dispatchPending: jest.Mock;
   };
 
   const moduleInfo = {
@@ -66,7 +80,7 @@ describe('NusModulesCronService', () => {
   }
 
   function getExecutedQuery(index = 0) {
-    const calls = prisma.$executeRaw.mock.calls as [Prisma.Sql][];
+    const calls = transaction.$executeRaw.mock.calls as [Prisma.Sql][];
     return calls[index][0];
   }
 
@@ -74,8 +88,27 @@ describe('NusModulesCronService', () => {
     httpService = {
       get: jest.fn(),
     };
-    prisma = {
+    transaction = {
       $executeRaw: jest.fn().mockResolvedValue(1),
+      moduleUpdateNotification: {
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    };
+    prisma = {
+      nusModule: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      $transaction: jest.fn(
+        async (callback: (client: typeof transaction) => Promise<void>) =>
+          callback(transaction),
+      ),
+    };
+    changeDetector = {
+      detect: jest.fn().mockReturnValue(null),
+    };
+    notificationService = {
+      buildDrafts: jest.fn().mockResolvedValue([]),
+      dispatchPending: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -83,6 +116,11 @@ describe('NusModulesCronService', () => {
         NusModulesCronService,
         { provide: HttpService, useValue: httpService },
         { provide: PrismaService, useValue: prisma },
+        { provide: ModuleChangeDetectorService, useValue: changeDetector },
+        {
+          provide: ModuleChangeNotificationService,
+          useValue: notificationService,
+        },
       ],
     }).compile();
 
@@ -121,7 +159,13 @@ describe('NusModulesCronService', () => {
     expect(httpService.get).toHaveBeenCalledWith(
       'https://api.nusmods.com/v2/2026-2027/modules/CS1010S.json',
     );
-    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(notificationService.buildDrafts).toHaveBeenCalledWith(
+      [],
+      '2026/2027',
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    );
+    expect(notificationService.dispatchPending).toHaveBeenCalledTimes(1);
 
     const query = getExecutedQuery();
     expect(query.sql).toContain('INSERT INTO "nus_modules"');
@@ -170,7 +214,8 @@ describe('NusModulesCronService', () => {
     await service.syncNusModsData();
 
     expect(httpService.get).toHaveBeenCalledTimes(502);
-    expect(prisma.$executeRaw).toHaveBeenCalledTimes(6);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(6);
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(6);
 
     const firstQuery = getExecutedQuery();
     const lastQuery = getExecutedQuery(5);
@@ -223,6 +268,60 @@ describe('NusModulesCronService', () => {
     httpService.get.mockReturnValueOnce(throwError(() => syncError));
 
     await expect(service.syncNusModsData()).rejects.toThrow(syncError);
-    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(notificationService.dispatchPending).not.toHaveBeenCalled();
+  });
+
+  it('atomically queues notifications with the module upsert', async () => {
+    const detectedChange = {
+      moduleCode: moduleInfo.moduleCode,
+      moduleTitle: moduleInfo.title,
+      globalChanges: [
+        {
+          category: 'requirements' as const,
+          summary: 'Prerequisites changed.',
+        },
+      ],
+      semesterChanges: {},
+    };
+    const notificationDraft = {
+      userId: 'user-id',
+      moduleCode: moduleInfo.moduleCode,
+      acadYear: '2026/2027',
+      semesterNumber: 1,
+      changes: {
+        moduleTitle: moduleInfo.title,
+        changes: detectedChange.globalChanges,
+      },
+      fingerprint: 'fingerprint',
+    };
+    httpService.get
+      .mockReturnValueOnce(of({ data: [moduleInfo] }))
+      .mockReturnValueOnce(of({ data: moduleDetail }));
+    prisma.nusModule.findMany.mockResolvedValueOnce([moduleInfo]);
+    changeDetector.detect.mockReturnValueOnce(detectedChange);
+    notificationService.buildDrafts.mockResolvedValueOnce([notificationDraft]);
+
+    await service.syncNusModsData();
+
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(
+      transaction.moduleUpdateNotification.createMany,
+    ).toHaveBeenCalledWith({
+      data: [notificationDraft],
+      skipDuplicates: true,
+    });
+  });
+
+  it('preserves stored semester data when a module detail fetch fails', async () => {
+    httpService.get
+      .mockReturnValueOnce(of({ data: [moduleInfo] }))
+      .mockReturnValueOnce(throwError(() => new Error('Detail unavailable')));
+
+    await service.syncNusModsData();
+
+    const query = getExecutedQuery();
+    expect(query.values[11]).toBeNull();
+    expect(query.sql).toContain('COALESCE(');
   });
 });
