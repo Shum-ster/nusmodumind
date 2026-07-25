@@ -4,13 +4,26 @@ import { of, throwError } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { NusModulesCronService } from './nusmodule.cron.service';
 import { Prisma } from '@prisma/client';
+import { ModuleChangeDetectorService } from './module-change-detector.service';
+import { ModuleChangeNotificationService } from './module-change-notification.service';
 
 describe('NusModulesCronService', () => {
   let service: NusModulesCronService;
   let httpService: { get: jest.Mock };
   let prisma: {
-    nusModule: { upsert: jest.Mock };
+    nusModule: { findMany: jest.Mock };
     $transaction: jest.Mock;
+  };
+  let transaction: {
+    $executeRaw: jest.Mock;
+    moduleUpdateNotification: { createMany: jest.Mock };
+  };
+  let changeDetector: {
+    detect: jest.Mock;
+  };
+  let notificationService: {
+    buildDrafts: jest.Mock;
+    dispatchPending: jest.Mock;
   };
 
   const moduleInfo = {
@@ -66,15 +79,36 @@ describe('NusModulesCronService', () => {
     });
   }
 
+  function getExecutedQuery(index = 0) {
+    const calls = transaction.$executeRaw.mock.calls as [Prisma.Sql][];
+    return calls[index][0];
+  }
+
   beforeEach(async () => {
     httpService = {
       get: jest.fn(),
     };
+    transaction = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      moduleUpdateNotification: {
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    };
     prisma = {
       nusModule: {
-        upsert: jest.fn().mockReturnValue({ kind: 'upsert' }),
+        findMany: jest.fn().mockResolvedValue([]),
       },
-      $transaction: jest.fn().mockResolvedValue([]),
+      $transaction: jest.fn(
+        async (callback: (client: typeof transaction) => Promise<void>) =>
+          callback(transaction),
+      ),
+    };
+    changeDetector = {
+      detect: jest.fn().mockReturnValue(null),
+    };
+    notificationService = {
+      buildDrafts: jest.fn().mockResolvedValue([]),
+      dispatchPending: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -82,6 +116,11 @@ describe('NusModulesCronService', () => {
         NusModulesCronService,
         { provide: HttpService, useValue: httpService },
         { provide: PrismaService, useValue: prisma },
+        { provide: ModuleChangeDetectorService, useValue: changeDetector },
+        {
+          provide: ModuleChangeNotificationService,
+          useValue: notificationService,
+        },
       ],
     }).compile();
 
@@ -120,15 +159,33 @@ describe('NusModulesCronService', () => {
     expect(httpService.get).toHaveBeenCalledWith(
       'https://api.nusmods.com/v2/2026-2027/modules/CS1010S.json',
     );
-    expect(prisma.nusModule.upsert).toHaveBeenCalledWith({
-      where: { moduleCode: moduleDetail.moduleCode },
-      update: expectedModuleData,
-      create: {
-        moduleCode: moduleDetail.moduleCode,
-        ...expectedModuleData,
-      },
-    });
-    expect(prisma.$transaction).toHaveBeenCalledWith([{ kind: 'upsert' }]);
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(notificationService.buildDrafts).toHaveBeenCalledWith(
+      [],
+      '2026/2027',
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    );
+    expect(notificationService.dispatchPending).toHaveBeenCalledTimes(1);
+
+    const query = getExecutedQuery();
+    expect(query.sql).toContain('INSERT INTO "nus_modules"');
+    expect(query.sql).toContain('ON CONFLICT ("module_code") DO UPDATE SET');
+    expect(query.sql).toContain('"last_updated" = CURRENT_TIMESTAMP');
+    expect(query.values).toEqual([
+      moduleDetail.moduleCode,
+      expectedModuleData.title,
+      expectedModuleData.description,
+      expectedModuleData.moduleCredit,
+      expectedModuleData.department,
+      expectedModuleData.faculty,
+      expectedModuleData.gradingBasisDescription,
+      expectedModuleData.prerequisite,
+      expectedModuleData.preclusion,
+      expectedModuleData.corequisite,
+      JSON.stringify(expectedModuleData.workload),
+      JSON.stringify(expectedModuleData.semesterData),
+      JSON.stringify(expectedModuleData.attributes),
+    ]);
   });
 
   it('keeps modules with empty semesterData', async () => {
@@ -143,15 +200,8 @@ describe('NusModulesCronService', () => {
 
     await service.syncNusModsData();
 
-    const expectedUpdate: unknown = expect.objectContaining({
-      semesterData: [],
-    });
-
-    expect(prisma.nusModule.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: expectedUpdate,
-      }),
-    );
+    const query = getExecutedQuery();
+    expect(query.values[11]).toBe('[]');
   });
 
   it('processes upserts in 100-module batches', async () => {
@@ -164,11 +214,13 @@ describe('NusModulesCronService', () => {
     await service.syncNusModsData();
 
     expect(httpService.get).toHaveBeenCalledTimes(502);
-    expect(prisma.nusModule.upsert).toHaveBeenCalledTimes(501);
     expect(prisma.$transaction).toHaveBeenCalledTimes(6);
-    const transactionCalls = prisma.$transaction.mock.calls as [unknown[]][];
-    expect(transactionCalls[0][0]).toHaveLength(100);
-    expect(transactionCalls[5][0]).toHaveLength(1);
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(6);
+
+    const firstQuery = getExecutedQuery();
+    const lastQuery = getExecutedQuery(5);
+    expect(firstQuery.values).toHaveLength(1_300);
+    expect(lastQuery.values).toHaveLength(13);
   });
 
   it('uses safe defaults when NUSMods omits required schema fields', async () => {
@@ -193,25 +245,22 @@ describe('NusModulesCronService', () => {
 
     await service.syncNusModsData();
 
-    const expectedUpdate: unknown = expect.objectContaining({
-      description: '',
-      department: null,
-      faculty: 'Unknown',
-      gradingBasisDescription: 'Unknown',
-      moduleCredit: '',
-      prerequisite: null,
-      preclusion: null,
-      corequisite: null,
-      workload: Prisma.DbNull,
-      semesterData: [],
-      attributes: Prisma.DbNull,
-    });
-
-    expect(prisma.nusModule.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: expectedUpdate,
-      }),
-    );
+    const query = getExecutedQuery();
+    expect(query.values).toEqual([
+      incompleteModule.moduleCode,
+      incompleteModule.title,
+      '',
+      '',
+      null,
+      'Unknown',
+      'Unknown',
+      null,
+      null,
+      null,
+      null,
+      '[]',
+      null,
+    ]);
   });
 
   it('propagates sync failures so scheduled runners report a failed job', async () => {
@@ -220,5 +269,59 @@ describe('NusModulesCronService', () => {
 
     await expect(service.syncNusModsData()).rejects.toThrow(syncError);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(notificationService.dispatchPending).not.toHaveBeenCalled();
+  });
+
+  it('atomically queues notifications with the module upsert', async () => {
+    const detectedChange = {
+      moduleCode: moduleInfo.moduleCode,
+      moduleTitle: moduleInfo.title,
+      globalChanges: [
+        {
+          category: 'requirements' as const,
+          summary: 'Prerequisites changed.',
+        },
+      ],
+      semesterChanges: {},
+    };
+    const notificationDraft = {
+      userId: 'user-id',
+      moduleCode: moduleInfo.moduleCode,
+      acadYear: '2026/2027',
+      semesterNumber: 1,
+      changes: {
+        moduleTitle: moduleInfo.title,
+        changes: detectedChange.globalChanges,
+      },
+      fingerprint: 'fingerprint',
+    };
+    httpService.get
+      .mockReturnValueOnce(of({ data: [moduleInfo] }))
+      .mockReturnValueOnce(of({ data: moduleDetail }));
+    prisma.nusModule.findMany.mockResolvedValueOnce([moduleInfo]);
+    changeDetector.detect.mockReturnValueOnce(detectedChange);
+    notificationService.buildDrafts.mockResolvedValueOnce([notificationDraft]);
+
+    await service.syncNusModsData();
+
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(
+      transaction.moduleUpdateNotification.createMany,
+    ).toHaveBeenCalledWith({
+      data: [notificationDraft],
+      skipDuplicates: true,
+    });
+  });
+
+  it('preserves stored semester data when a module detail fetch fails', async () => {
+    httpService.get
+      .mockReturnValueOnce(of({ data: [moduleInfo] }))
+      .mockReturnValueOnce(throwError(() => new Error('Detail unavailable')));
+
+    await service.syncNusModsData();
+
+    const query = getExecutedQuery();
+    expect(query.values[11]).toBeNull();
+    expect(query.sql).toContain('COALESCE(');
   });
 });

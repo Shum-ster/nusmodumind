@@ -17,7 +17,7 @@ jobs:
   sync:
     name: Sync AY2026/27 module data
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     defaults:
       run:
@@ -37,9 +37,17 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+
       - name: Sync NUSMods data
         run: npm run sync:nusmods
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
           NODE_ENV: production
           NUSMODS_ACAD_YEAR: "2026-2027"
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
+          RESEND_TEST_RECIPIENT: ${{ vars.RESEND_TEST_RECIPIENT }}

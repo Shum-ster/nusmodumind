@@ -1,21 +1,24 @@
-import { Module } from '@nestjs/common';
-import { NusmoduleService } from './nusmodule.service';
-import { NusmoduleController } from './nusmodule.controller';
 import { HttpModule } from '@nestjs/axios';
-import { NusModulesCronService } from './nusmodule.cron.service';
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../prisma/prisma.module';
+import { NusModulesCronService } from './nusmodule.cron.service';
 import { EmailModule } from '../email/email.module';
 import { ModuleChangeDetectorService } from './module-change-detector.service';
 import { ModuleChangeNotificationService } from './module-change-notification.service';
 
 @Module({
-  imports: [EmailModule, HttpModule, PrismaModule],
-  controllers: [NusmoduleController],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    EmailModule,
+    HttpModule,
+    PrismaModule,
+  ],
   providers: [
-    NusmoduleService,
     NusModulesCronService,
     ModuleChangeDetectorService,
     ModuleChangeNotificationService,
   ],
+  exports: [NusModulesCronService],
 })
-export class NusmoduleModule {}
+export class NusmoduleSyncModule {}
