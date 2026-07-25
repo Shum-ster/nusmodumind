@@ -1,0 +1,45 @@
+name: Nightly NUSMods Sync
+
+on:
+  schedule:
+    # GitHub schedules use UTC. 16:00 UTC is midnight in Singapore.
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-nusmods-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync AY2026/27 module data
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Sync NUSMods data
+        run: npm run sync:nusmods
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+          NODE_ENV: production
+          NUSMODS_ACAD_YEAR: "2026-2027"

@@ -11,9 +11,8 @@ export class NusModulesCronService {
   private readonly logger = new Logger(NusModulesCronService.name);
   private readonly detailFetchConcurrency = 20;
 
-  // Move the Academic Year to an env variable later
   private readonly NUSMODS_ACAD_YEAR =
-    process.env.NUSMODS_ACAD_YEAR ?? '2025-2026';
+    process.env.NUSMODS_ACAD_YEAR ?? '2026-2027';
   private readonly NUSMODS_API_BASE_URL = `https://api.nusmods.com/v2/${this.NUSMODS_ACAD_YEAR}`;
   private readonly NUSMODS_MODULE_INFO_URL = `${this.NUSMODS_API_BASE_URL}/moduleInfo.json`;
 
@@ -50,6 +49,7 @@ export class NusModulesCronService {
         'Failed to sync NUSMods data',
         error instanceof Error ? error.stack : error,
       );
+      throw error;
     }
   }
 

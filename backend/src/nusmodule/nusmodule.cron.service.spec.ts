@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpService } from '@nestjs/axios';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { NusModulesCronService } from './nusmodule.cron.service';
 import { Prisma } from '@prisma/client';
@@ -115,10 +115,10 @@ describe('NusModulesCronService', () => {
     };
 
     expect(httpService.get).toHaveBeenCalledWith(
-      'https://api.nusmods.com/v2/2025-2026/moduleInfo.json',
+      'https://api.nusmods.com/v2/2026-2027/moduleInfo.json',
     );
     expect(httpService.get).toHaveBeenCalledWith(
-      'https://api.nusmods.com/v2/2025-2026/modules/CS1010S.json',
+      'https://api.nusmods.com/v2/2026-2027/modules/CS1010S.json',
     );
     expect(prisma.nusModule.upsert).toHaveBeenCalledWith({
       where: { moduleCode: moduleDetail.moduleCode },
@@ -212,5 +212,13 @@ describe('NusModulesCronService', () => {
         update: expectedUpdate,
       }),
     );
+  });
+
+  it('propagates sync failures so scheduled runners report a failed job', async () => {
+    const syncError = new Error('NUSMods API unavailable');
+    httpService.get.mockReturnValueOnce(throwError(() => syncError));
+
+    await expect(service.syncNusModsData()).rejects.toThrow(syncError);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
