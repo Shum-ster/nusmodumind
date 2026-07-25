@@ -128,7 +128,9 @@ describe('NusModulesCronService', () => {
         ...expectedModuleData,
       },
     });
-    expect(prisma.$transaction).toHaveBeenCalledWith([{ kind: 'upsert' }]);
+    expect(prisma.$transaction).toHaveBeenCalledWith([{ kind: 'upsert' }], {
+      timeout: 30_000,
+    });
   });
 
   it('keeps modules with empty semesterData', async () => {
@@ -166,8 +168,12 @@ describe('NusModulesCronService', () => {
     expect(httpService.get).toHaveBeenCalledTimes(502);
     expect(prisma.nusModule.upsert).toHaveBeenCalledTimes(501);
     expect(prisma.$transaction).toHaveBeenCalledTimes(6);
-    const transactionCalls = prisma.$transaction.mock.calls as [unknown[]][];
+    const transactionCalls = prisma.$transaction.mock.calls as [
+      unknown[],
+      { timeout: number },
+    ][];
     expect(transactionCalls[0][0]).toHaveLength(100);
+    expect(transactionCalls[0][1]).toEqual({ timeout: 30_000 });
     expect(transactionCalls[5][0]).toHaveLength(1);
   });
 

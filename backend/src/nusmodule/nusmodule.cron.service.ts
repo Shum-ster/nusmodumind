@@ -10,6 +10,8 @@ import type { NusModsModuleInfo, NusModuleUpsertData } from '../shared/types';
 export class NusModulesCronService {
   private readonly logger = new Logger(NusModulesCronService.name);
   private readonly detailFetchConcurrency = 20;
+  private readonly databaseBatchSize = 100;
+  private readonly databaseTransactionTimeoutMs = 30_000;
 
   private readonly NUSMODS_ACAD_YEAR =
     process.env.NUSMODS_ACAD_YEAR ?? '2026-2027';
@@ -118,16 +120,17 @@ export class NusModulesCronService {
   }
 
   private async upsertNusModsModules(modules: NusModsModuleInfo[]) {
-    const batchSize = 100;
     let processedCount = 0;
 
-    for (let i = 0; i < modules.length; i += batchSize) {
-      const batch = modules.slice(i, i + batchSize);
+    for (let i = 0; i < modules.length; i += this.databaseBatchSize) {
+      const batch = modules.slice(i, i + this.databaseBatchSize);
       const upsertOperations = batch.map((moduleInfo) =>
         this.buildUpsertOperation(moduleInfo),
       );
 
-      await this.prisma.$transaction(upsertOperations);
+      await this.prisma.$transaction(upsertOperations, {
+        timeout: this.databaseTransactionTimeoutMs,
+      });
       processedCount += batch.length;
       this.logger.log(
         `Upserted ${processedCount}/${modules.length} modules...`,
