@@ -7,11 +7,14 @@ import type { SendEmailInput } from './email.types';
 export class ResendEmailService {
   private readonly client: Resend | null;
   private readonly from: string | null;
+  private readonly testRecipient: string | null;
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY')?.trim();
     this.from =
       this.configService.get<string>('RESEND_FROM_EMAIL')?.trim() || null;
+    this.testRecipient =
+      this.configService.get<string>('RESEND_TEST_RECIPIENT')?.trim() || null;
     this.client = apiKey ? new Resend(apiKey) : null;
   }
 
@@ -29,7 +32,7 @@ export class ResendEmailService {
     const { data, error } = await this.client.emails.send(
       {
         from: this.from,
-        to: input.to,
+        to: this.testRecipient ?? input.to,
         subject: input.subject,
         html: input.html,
         text: input.text,

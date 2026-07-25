@@ -66,6 +66,7 @@ OPENAI_MODEL="gpt-5.6-terra"
 NUSMODS_ACAD_YEAR="2026-2027"
 RESEND_API_KEY="your-resend-api-key"
 RESEND_FROM_EMAIL="NUSModuMind <notifications@your-verified-domain.com>"
+RESEND_TEST_RECIPIENT=""
 ```
 
 `OPENAI_API_KEY` is used only by the backend. The optional `OPENAI_MODEL`
@@ -95,6 +96,8 @@ For the nightly GitHub Actions sync, configure:
 - `SUPABASE_DATABASE_URL` and `RESEND_API_KEY` as Actions secrets.
 - `RESEND_FROM_EMAIL` as an Actions variable using a sender on a
   Resend-verified domain.
+- Optionally set `RESEND_TEST_RECIPIENT` to redirect every notification to one
+  address while testing. Remove it before sending updates to real students.
 
 Start the backend:
 

@@ -57,6 +57,41 @@ describe('ResendEmailService', () => {
     );
   });
 
+  it('redirects delivery when a test recipient is configured', async () => {
+    mockSend.mockResolvedValue({
+      data: { id: 'email-id' },
+      error: null,
+    });
+    const service = new ResendEmailService(
+      buildConfigService({
+        RESEND_API_KEY: 're_test',
+        RESEND_FROM_EMAIL: 'NUSModuMind <onboarding@resend.dev>',
+        RESEND_TEST_RECIPIENT: 'owner@example.com',
+      }),
+    );
+
+    await service.send({
+      to: 'student@example.com',
+      subject: 'Module update',
+      html: '<p>Changed</p>',
+      text: 'Changed',
+      idempotencyKey: 'module-update/notification-id',
+    });
+
+    expect(mockSend).toHaveBeenCalledWith(
+      {
+        from: 'NUSModuMind <onboarding@resend.dev>',
+        to: 'owner@example.com',
+        subject: 'Module update',
+        html: '<p>Changed</p>',
+        text: 'Changed',
+      },
+      {
+        idempotencyKey: 'module-update/notification-id',
+      },
+    );
+  });
+
   it('turns Resend API errors into rejected sends', async () => {
     mockSend.mockResolvedValue({
       data: null,

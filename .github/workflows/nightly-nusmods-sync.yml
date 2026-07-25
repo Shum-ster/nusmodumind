@@ -50,3 +50,4 @@ jobs:
           NUSMODS_ACAD_YEAR: "2026-2027"
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
+          RESEND_TEST_RECIPIENT: ${{ vars.RESEND_TEST_RECIPIENT }}
