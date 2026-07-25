@@ -1,7 +1,12 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 export function createApiUrl(path: string) {
-  return new URL(`${API_BASE_URL}${path}`);
+  if (/^https?:\/\//i.test(API_BASE_URL)) {
+    return new URL(`${API_BASE_URL}${path}`);
+  }
+
+  return new URL(`${API_BASE_URL}${path}`, window.location.origin);
 }
 
 type ApiRequestOptions = {
