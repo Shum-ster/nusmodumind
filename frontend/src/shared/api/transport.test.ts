@@ -10,6 +10,19 @@ describe("API transport", () => {
     );
   });
 
+  it("falls back to the production API when the configured URL is empty", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "");
+
+    try {
+      expect(createApiUrl("/auth/login").toString()).toBe(
+        "https://nusmodumind-api.vercel.app/auth/login",
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("serializes query values and omits empty values", async () => {
     server.use(
       http.get("http://localhost:3001/nusmodule", ({ request }) => {
@@ -77,6 +90,31 @@ describe("API transport", () => {
         method: "POST",
       }),
     ).rejects.toThrow("email must be an email, password is too short");
+  });
+
+  it("does not expose an HTML error document to the user", async () => {
+    server.use(
+      http.post(
+        "http://localhost:3001/auth/login",
+        () =>
+          new HttpResponse(
+            "<!DOCTYPE html><html><body>Not found</body></html>",
+            {
+              headers: { "Content-Type": "text/html" },
+              status: 404,
+            },
+          ),
+      ),
+    );
+
+    await expect(
+      apiRequest("/auth/login", {
+        body: { email: "student@u.nus.edu", password: "password" },
+        method: "POST",
+      }),
+    ).rejects.toThrow(
+      "The server returned an unexpected response. Please try again.",
+    );
   });
 
   it("uses the dedicated large-image error for HTTP 413", async () => {
