@@ -11,25 +11,57 @@ skinparam sequence {
     ParticipantBackgroundColor #FFFFFF
 }
 
-participant "Nest ScheduleModule" as ScheduleModule
+participant "GitHub Actions" as Actions
+participant "sync-nusmods.ts" as SyncScript
 participant "NusModulesCronService" as CronService
-participant "HttpService" as HttpService
 participant "NUSMods API" as NUSModsApi
-database "PostgreSQL" as DB
+participant "ModuleChangeDetectorService" as ChangeDetector
+participant "ModuleChangeNotificationService" as NotificationService
+database "Supabase PostgreSQL" as DB
 
-ScheduleModule -> CronService : Trigger handleScheduledSync()\nmidnight Asia/Singapore
-CronService -> CronService : syncNusModsData()
-CronService -> HttpService : GET NUSMods moduleInfo.json
-HttpService -> NUSModsApi : HTTPS request
-NUSModsApi --> HttpService : Module info array
-HttpService --> CronService : modules
-CronService -> CronService : Map NUSMods fields to NusModule data
+Actions -> Actions : Trigger nightly at 00:00 SGT
+Actions -> Actions : Checkout, npm ci
+Actions -> DB : prisma migrate deploy
+DB --> Actions : Schema up to date
+Actions -> SyncScript : npm run sync:nusmods\nNUSMODS_ACAD_YEAR=2026-2027
+SyncScript -> SyncScript : Create isolated NusmoduleSyncModule
+SyncScript -> CronService : syncNusModsData()
 
-loop In batches of 500 modules
-    CronService -> DB : Transaction of nusModule.upsert operations
-    DB --> CronService : Batch upsert result
+CronService -> NUSModsApi : GET moduleInfo.json
+NUSModsApi --> CronService : Module information array
+
+loop Fetch details, at most 20 concurrent requests
+    CronService -> NUSModsApi : GET /modules/{moduleCode}.json
+    alt Detail request succeeds
+        NUSModsApi --> CronService : Timetable, exam and module data
+    else Detail request fails
+        NUSModsApi --> CronService : Error
+        CronService -> CronService : Use summary data and preserve stored semester_data
+    end
 end
 
-CronService -> CronService : Log sync completed
+loop Process batches of 100 modules
+    CronService -> DB : SELECT existing module snapshots
+    DB --> CronService : Before-sync data
+    CronService -> ChangeDetector : Compare stored and downloaded data
+    ChangeDetector --> CronService : Relevant global and semester changes
+    CronService -> NotificationService : buildDrafts(changes, AY, sync date)
+    NotificationService -> DB : Find matching PLANNED modules\nby academic year and semester
+    DB --> NotificationService : Affected users and planned modules
+    NotificationService --> CronService : Deduplicated outbox rows
+
+    CronService -> DB : BEGIN transaction\nBulk upsert modules\nCreate notification rows
+    DB --> CronService : COMMIT
+end
+
+CronService -> NotificationService : dispatchPending()
+ref over NotificationService, DB
+    Notification delivery is detailed in
+    22_backend_module_change_email_notification.wsd
+end ref
+NotificationService --> CronService : Delivery attempts completed
+CronService --> SyncScript : Sync complete
+SyncScript -> SyncScript : Close application context
+SyncScript --> Actions : Exit successfully
 
 @enduml

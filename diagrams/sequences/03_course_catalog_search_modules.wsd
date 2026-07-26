@@ -1,6 +1,6 @@
 @startuml Course_Catalog_Search_Modules_Sequence
 
-title Course Catalog - Search Modules
+title Course Catalog - Browse Modules
 
 hide footbox
 skinparam shadowing false
@@ -12,23 +12,37 @@ skinparam sequence {
 }
 
 actor Student
-participant "CoursesPage" as CoursesPage
+participant "CourseCatalog" as CourseCatalog
 participant "courses-api.ts" as CoursesApi
 participant "NusmoduleController" as NusmoduleController
 participant "NusmoduleService" as NusmoduleService
 database "PostgreSQL" as DB
 
-Student -> CoursesPage : Enter search/filter criteria
-CoursesPage -> CoursesApi : searchNusModules(query)
-CoursesApi -> NusmoduleController : GET /nusmodule?search&faculty&department&cursor&limit
+Student -> CourseCatalog : Open Courses page
+CourseCatalog -> CoursesApi : searchNusModules({ limit: 50 })
+CoursesApi -> NusmoduleController : GET /nusmodule?cursor&limit
 NusmoduleController -> NusmoduleService : findAll(options)
-NusmoduleService -> NusmoduleService : Normalize cursor, search, and limit
-NusmoduleService -> DB : SELECT matching nus_modules\nORDER BY module_code\nLIMIT limit + 1
-DB --> NusmoduleService : modules
+NusmoduleService -> NusmoduleService : Normalize cursor and limit
+NusmoduleService -> DB : SELECT nus_modules\nORDER BY module_code\nLIMIT limit + 1
+DB --> NusmoduleService : Modules
 NusmoduleService -> NusmoduleService : Build items and nextCursor
 NusmoduleService --> NusmoduleController : { items, nextCursor }
-NusmoduleController --> CoursesApi : Search response
-CoursesApi --> CoursesPage : Module results
-CoursesPage --> Student : Render matching modules
+NusmoduleController --> CoursesApi : Catalog response
+CoursesApi --> CourseCatalog : Initial module page
+CourseCatalog --> Student : Render module catalog
+
+loop Student scrolls near the end or selects Load More
+    Student -> CourseCatalog : Request more modules
+    CourseCatalog -> CoursesApi : searchNusModules({ cursor, limit: 50 })
+    CoursesApi -> NusmoduleController : GET /nusmodule?cursor&limit
+    NusmoduleController -> NusmoduleService : findAll(options)
+    NusmoduleService -> DB : SELECT next module page
+    DB --> NusmoduleService : Modules
+    NusmoduleService --> CourseCatalog : Items and nextCursor
+    CourseCatalog --> Student : Append modules without duplicates
+end
+
+Student -> CourseCatalog : Select a module
+CourseCatalog --> Student : Navigate to /courses/{moduleCode}
 
 @enduml

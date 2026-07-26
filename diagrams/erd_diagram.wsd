@@ -6,8 +6,8 @@ hide circle
 top to bottom direction
 skinparam linetype ortho
 skinparam shadowing false
-skinparam nodesep 70
-skinparam ranksep 85
+skinparam nodesep 75
+skinparam ranksep 90
 skinparam entity {
     BackgroundColor #FFFFFF
     BorderColor #2F3A4A
@@ -65,21 +65,46 @@ entity "semesters" as semesters {
 entity "users" as users {
     * id : UUID <<PK>>
     --
-    email : VARCHAR
+    email : VARCHAR <<UQ>>
     password_hash : VARCHAR
     username : VARCHAR NULL
     faculty : VARCHAR NULL
     degree : VARCHAR NULL
+    graduation_year : INTEGER NULL
+    matriculation_year : INTEGER NULL
+    lifestyle_preferences : TEXT NULL
+    graduation_requirements : JSONB NULL
+    academic_profile_change_allowed_at : TIMESTAMP NULL
+}
+
+entity "module_update_notifications" as module_update_notifications {
+    * id : UUID <<PK>>
+    --
+    user_id : UUID <<FK>>
+    module_code : VARCHAR
+    acad_year : VARCHAR
+    semester_number : INTEGER
+    changes : JSONB
+    fingerprint : VARCHAR
+    status : ModuleUpdateNotificationStatus
+    attempts : INTEGER
+    last_error : TEXT NULL
+    sent_at : TIMESTAMP NULL
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
 }
 
 entity "public_plans" as public_plans {
     * id : UUID <<PK>>
     --
-    author_id : UUID <<FK>>
+    author_id : UUID <<FK, UQ>>
     title : VARCHAR
-    description : TEXT
+    description : TEXT NULL
     plan_snapshot : JSONB
+    plan_image_data_url : TEXT NULL
+    cover_image_data_url : TEXT NULL
     upvotes : INTEGER
+    view_count : INTEGER
     created_at : TIMESTAMP
 }
 
@@ -93,10 +118,11 @@ entity "plan_reviews" as plan_reviews {
     created_at : TIMESTAMP
 }
 
-' Layout hints only. Keep module-dependent tables as siblings below the
-' NUS catalog, then place user-owned sharing data further down.
+' Layout hints keep the NUS catalog as the root, followed by module-linked
+' records, user planning data, and finally user-owned sharing/notification data.
 planned_modules -[hidden]right- module_reviews
 semesters -[hidden]right- users
+module_update_notifications -[hidden]right- public_plans
 public_plans -[hidden]right- plan_reviews
 
 nus_modules ||--o{ planned_modules
@@ -108,7 +134,8 @@ semesters }o--|| users
 planned_modules }o--|| users
 module_reviews }o--|| users
 
-users ||--o{ public_plans
+users ||--o{ module_update_notifications
+users ||--o| public_plans
 users ||--o{ plan_reviews
 public_plans ||--o{ plan_reviews
 

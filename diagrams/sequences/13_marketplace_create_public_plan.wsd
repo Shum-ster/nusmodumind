@@ -1,6 +1,6 @@
 @startuml Marketplace_Create_Public_Plan_Sequence
 
-title Marketplace - Create Public Plan
+title Marketplace - Create Public Degree Plan
 
 hide footbox
 skinparam shadowing false
@@ -12,30 +12,52 @@ skinparam sequence {
 }
 
 actor Student
-participant "MarketplacePage" as MarketplacePage
-participant "marketplace-api.ts" as MarketplaceApi
+participant "PopularChoicesSubmitPage" as SubmitPage
+participant "Dashboard Plan Export" as PlanExport
+participant "popular-choices-api.ts" as PopularChoicesApi
 participant "JWT AuthGuard" as JwtGuard
 participant "PublicPlansController" as PublicPlansController
 participant "PublicPlansService" as PublicPlansService
 database "PostgreSQL" as DB
 
-Student -> MarketplacePage : Share current plan
-MarketplacePage -> MarketplacePage : Build title, description, and planSnapshot
-MarketplacePage -> MarketplaceApi : createPublicPlan(token, body)
-MarketplaceApi -> JwtGuard : POST /public-plans\nAuthorization: Bearer token
+Student -> SubmitPage : Open submission page
+SubmitPage -> PlanExport : Validate dashboard and build plan snapshot
+PlanExport -> PlanExport : Render degree-plan image
+PlanExport --> SubmitPage : planSnapshot and planImageDataUrl
+SubmitPage -> PopularChoicesApi : getCurrentUserPublicPlan(token)
+PopularChoicesApi -> JwtGuard : GET /public-plans/me
+JwtGuard -> PublicPlansController : findCurrentUserPlan(currentUser)
+PublicPlansController -> PublicPlansService : findCurrentUserPlan(user.id)
+PublicPlansService -> DB : SELECT public_plan by author_id
+DB --> SubmitPage : Existing plan or null
+
+Student -> SubmitPage : Submit title, description and optional cover
+SubmitPage -> PopularChoicesApi : createPublicPlan(token, body)
+PopularChoicesApi -> JwtGuard : POST /public-plans\nAuthorization: Bearer token
 
 alt Token missing or invalid
-    JwtGuard --> MarketplaceApi : 401 Unauthorized
-    MarketplaceApi --> MarketplacePage : Display auth error
+    JwtGuard --> SubmitPage : 401 Unauthorized
 else Token valid
     JwtGuard -> PublicPlansController : create(currentUser, dto)
     PublicPlansController -> PublicPlansService : create(user.id, dto)
-    PublicPlansService -> DB : INSERT public_plans with author_id
-    DB --> PublicPlansService : Created public plan
-    PublicPlansService --> PublicPlansController : Created public plan
-    PublicPlansController --> MarketplaceApi : 201 Created
-    MarketplaceApi --> MarketplacePage : Public plan
-    MarketplacePage --> Student : Show plan in marketplace
+    PublicPlansService -> DB : SELECT user faculty and degree
+    DB --> PublicPlansService : Academic profile
+
+    alt Faculty or degree is missing
+        PublicPlansService --> SubmitPage : 400 Bad Request
+    else Academic profile is complete
+        PublicPlansService -> DB : SELECT public_plan by author_id
+        DB --> PublicPlansService : Existing plan or null
+
+        alt User already has a public plan
+            PublicPlansService --> SubmitPage : 409 Conflict
+        else No existing public plan
+            PublicPlansService -> DB : INSERT snapshot, plan image,\ncover image and author
+            DB --> PublicPlansService : Created public plan
+            PublicPlansService --> SubmitPage : 201 Created
+            SubmitPage --> Student : Open new public plan detail page
+        end
+    end
 end
 
 @enduml

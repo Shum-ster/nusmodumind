@@ -1,6 +1,6 @@
 @startuml Marketplace_Delete_Public_Plan_Sequence
 
-title Marketplace - Delete Public Plan
+title Marketplace - Delete Public Degree Plan
 
 hide footbox
 skinparam shadowing false
@@ -12,41 +12,35 @@ skinparam sequence {
 }
 
 actor Student
-participant "MarketplacePage" as MarketplacePage
-participant "marketplace-api.ts" as MarketplaceApi
+participant "MySubmittedDegreePlanPage" as SubmittedPlanPage
+participant "popular-choices-api.ts" as PopularChoicesApi
 participant "JWT AuthGuard" as JwtGuard
 participant "PublicPlansController" as PublicPlansController
 participant "PublicPlansService" as PublicPlansService
 database "PostgreSQL" as DB
 
-Student -> MarketplacePage : Delete own public plan
-MarketplacePage -> MarketplaceApi : deletePublicPlan(token, id)
-MarketplaceApi -> JwtGuard : DELETE /public-plans/:id\nAuthorization: Bearer token
+Student -> SubmittedPlanPage : Delete submitted degree plan
+SubmittedPlanPage -> PopularChoicesApi : deletePublicPlan(token, id)
+PopularChoicesApi -> JwtGuard : DELETE /public-plans/:id\nAuthorization: Bearer token
 
 alt Token missing or invalid
-    JwtGuard --> MarketplaceApi : 401 Unauthorized
-    MarketplaceApi --> MarketplacePage : Display auth error
+    JwtGuard --> SubmittedPlanPage : 401 Unauthorized
 else Token valid
     JwtGuard -> PublicPlansController : remove(currentUser, id)
     PublicPlansController -> PublicPlansService : remove(user.id, id)
-    PublicPlansService -> DB : SELECT public_plan by id with author and reviews
-    DB --> PublicPlansService : public plan or null
+    PublicPlansService -> DB : Find plan with author and reviews\nwithout incrementing view count
+    DB --> PublicPlansService : Public plan or null
 
     alt Public plan not found
-        PublicPlansService --> PublicPlansController : NotFoundException
-        PublicPlansController --> MarketplaceApi : 404 Not Found
+        PublicPlansService --> SubmittedPlanPage : 404 Not Found
     else Public plan belongs to another user
-        PublicPlansService --> PublicPlansController : ForbiddenException
-        PublicPlansController --> MarketplaceApi : 403 Forbidden
+        PublicPlansService --> SubmittedPlanPage : 403 Forbidden
     else Current user authored public plan
         PublicPlansService -> DB : DELETE public_plans
-        DB --> PublicPlansService : Deleted public plan
-        PublicPlansService --> PublicPlansController : Deleted public plan
-        PublicPlansController --> MarketplaceApi : 200 OK
+        DB --> PublicPlansService : Deleted plan
+        PublicPlansService --> SubmittedPlanPage : 200 OK
+        SubmittedPlanPage --> Student : Clear submitted-plan view
     end
-
-    MarketplaceApi --> MarketplacePage : Result or error
-    MarketplacePage --> Student : Remove public plan from marketplace UI
 end
 
 @enduml

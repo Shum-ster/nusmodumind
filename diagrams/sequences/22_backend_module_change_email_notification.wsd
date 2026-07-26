@@ -1,0 +1,56 @@
+@startuml Backend_Module_Change_Email_Notification_Sequence
+
+title Backend Jobs - Module Change Email Notification
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+participant "NusModulesCronService" as CronService
+participant "ModuleChangeNotificationService" as NotificationService
+database "PostgreSQL" as DB
+participant "Email Template" as Template
+participant "ResendEmailService" as EmailService
+participant "Resend API" as Resend
+actor "Recipient Inbox" as Recipient
+
+CronService -> NotificationService : dispatchPending()
+
+alt Resend configuration is missing
+    NotificationService -> NotificationService : Log warning
+    NotificationService --> CronService : Leave notifications queued
+else Resend is configured
+    NotificationService -> DB : SELECT PENDING or FAILED notifications\nwhere attempts < 5
+    DB --> NotificationService : Notifications with user email
+
+    loop At most 5 concurrent deliveries
+        NotificationService -> NotificationService : Validate stored changes JSON
+        NotificationService -> Template : Build HTML and plain-text email
+        Template --> NotificationService : Subject and concise body\nup to 8 visible changes
+        NotificationService -> EmailService : send(email, idempotency key)
+        EmailService -> EmailService : Use RESEND_TEST_RECIPIENT\nwhen configured
+        EmailService -> Resend : Send email
+
+        alt Resend accepts email
+            Resend -> Recipient : Deliver module update
+            Resend --> EmailService : Email ID
+            EmailService --> NotificationService : Delivery accepted
+            NotificationService -> DB : Mark SENT, increment attempts,\nset sent_at
+            DB --> NotificationService : Updated
+        else Validation or delivery fails
+            Resend --> EmailService : Error
+            EmailService --> NotificationService : Delivery failed
+            NotificationService -> DB : Mark FAILED, increment attempts,\nstore safe error
+            DB --> NotificationService : Retained for next sync retry
+        end
+    end
+
+    NotificationService --> CronService : Dispatch complete
+end
+
+@enduml

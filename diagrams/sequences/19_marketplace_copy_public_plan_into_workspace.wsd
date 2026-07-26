@@ -12,8 +12,8 @@ skinparam sequence {
 }
 
 actor Student
-participant "MarketplacePage" as MarketplacePage
-participant "marketplace-api.ts" as MarketplaceApi
+participant "Public Plan Detail Page" as PlanDetailPage
+participant "popular-choices-api.ts" as PopularChoicesApi
 participant "planner-api.ts" as PlannerApi
 participant "JWT AuthGuard" as JwtGuard
 participant "PublicPlansController" as PublicPlansController
@@ -24,20 +24,24 @@ participant "PlannedModulesController" as PlannedModulesController
 participant "PlannedModulesService" as PlannedModulesService
 database "PostgreSQL" as DB
 
-Student -> MarketplacePage : Copy public plan
-MarketplacePage -> MarketplaceApi : getPublicPlan(id)
-MarketplaceApi -> PublicPlansController : GET /public-plans/:id
-PublicPlansController -> PublicPlansService : findOne(id)
-PublicPlansService -> DB : SELECT public_plan with plan_snapshot
-DB --> PublicPlansService : public plan detail
-PublicPlansService --> PublicPlansController : public plan detail
-PublicPlansController --> MarketplaceApi : 200 OK
-MarketplaceApi --> MarketplacePage : planSnapshot
+note over PlanDetailPage, PlannedModulesService #FFF3CD
+No copy action is currently wired into the frontend.
+This diagram documents the proposed orchestration using existing APIs.
+end note
 
-MarketplacePage -> MarketplacePage : Read semesters and modules from planSnapshot
+Student -> PlanDetailPage : Copy public plan
+PlanDetailPage -> PopularChoicesApi : getPublicPlan(id)
+PopularChoicesApi -> PublicPlansController : GET /public-plans/:id
+PublicPlansController -> PublicPlansService : findOne(id)
+PublicPlansService -> DB : Increment view_count and return plan_snapshot
+DB --> PublicPlansService : public plan detail
+PublicPlansService --> PopularChoicesApi : public plan detail
+PopularChoicesApi --> PlanDetailPage : planSnapshot
+
+PlanDetailPage -> PlanDetailPage : Read semesters and modules from planSnapshot
 
 loop For each semester in snapshot
-    MarketplacePage -> PlannerApi : createSemester(token, semester)
+    PlanDetailPage -> PlannerApi : createSemester(token, semester)
     PlannerApi -> JwtGuard : POST /semesters\nAuthorization: Bearer token
     JwtGuard -> SemestersController : create(currentUser, dto)
     SemestersController -> SemestersService : create(user.id, dto)
@@ -45,11 +49,11 @@ loop For each semester in snapshot
     DB --> SemestersService : new semester
     SemestersService --> SemestersController : new semester
     SemestersController --> PlannerApi : 201 Created
-    PlannerApi --> MarketplacePage : new semester id
+    PlannerApi --> PlanDetailPage : new semester id
 end
 
 loop For each planned module in snapshot
-    MarketplacePage -> PlannerApi : createPlannedModule(token, copied module)
+    PlanDetailPage -> PlannerApi : createPlannedModule(token, copied module)
     PlannerApi -> JwtGuard : POST /planned-modules\nAuthorization: Bearer token
     JwtGuard -> PlannedModulesController : create(currentUser, dto)
     PlannedModulesController -> PlannedModulesService : create(user.id, dto)
@@ -57,9 +61,9 @@ loop For each planned module in snapshot
     DB --> PlannedModulesService : new planned module
     PlannedModulesService --> PlannedModulesController : new planned module
     PlannedModulesController --> PlannerApi : 201 Created
-    PlannerApi --> MarketplacePage : new planned module
+    PlannerApi --> PlanDetailPage : new planned module
 end
 
-MarketplacePage --> Student : Public plan appears in own dashboard/workspace
+PlanDetailPage --> Student : Public plan appears in own dashboard/workspace
 
 @enduml
