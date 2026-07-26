@@ -14,33 +14,43 @@ skinparam sequence {
 actor Developer
 participant "npm script" as NpmScript
 participant "sync-nusmods.ts" as SyncScript
-participant "Nest ApplicationContext" as AppContext
+participant "NusmoduleSyncModule" as SyncModule
 participant "NusModulesCronService" as CronService
-participant "HttpService" as HttpService
 participant "NUSMods API" as NUSModsApi
+participant "Change and Notification Services" as ChangeServices
 database "PostgreSQL" as DB
 
 Developer -> NpmScript : npm run sync:nusmods
-NpmScript -> SyncScript : ts-node sync-nusmods.ts
-SyncScript -> AppContext : NestFactory.createApplicationContext(AppModule)
-AppContext --> SyncScript : Application context
-SyncScript -> AppContext : app.get(NusModulesCronService)
-AppContext --> SyncScript : Cron service instance
+NpmScript -> SyncScript : Start standalone TypeScript script
+SyncScript -> SyncModule : createApplicationContext(NusmoduleSyncModule)
+SyncModule --> SyncScript : Isolated application context
 SyncScript -> CronService : syncNusModsData()
-CronService -> HttpService : GET NUSMods moduleInfo.json
-HttpService -> NUSModsApi : HTTPS request
-NUSModsApi --> HttpService : Module info array
-HttpService --> CronService : modules
-CronService -> CronService : Map NUSMods fields to NusModule data
+CronService -> NUSModsApi : Download module list and detailed data
+NUSModsApi --> CronService : Module, timetable and exam data
 
-loop In batches of 500 modules
-    CronService -> DB : Transaction of nusModule.upsert operations
-    DB --> CronService : Batch upsert result
+loop Process batches of 100 modules
+    CronService -> DB : Load before-sync module snapshots
+    DB --> CronService : Existing data
+    CronService -> ChangeServices : Detect relevant changes and build drafts
+    ChangeServices -> DB : Find matching PLANNED modules\nfor the synced year and semester
+    DB --> ChangeServices : Affected users
+    ChangeServices --> CronService : Notification outbox rows
+    CronService -> DB : Atomic bulk upsert and outbox insert
+    DB --> CronService : Batch committed
 end
 
+CronService -> ChangeServices : Dispatch pending notification emails
+ChangeServices --> CronService : Sent or retained for retry
 CronService --> SyncScript : Sync complete
-SyncScript -> AppContext : app.close()
-AppContext --> SyncScript : Closed
-SyncScript --> Developer : Command exits
+
+alt Sync succeeds
+    SyncScript -> SyncModule : app.close()
+    SyncModule --> SyncScript : Closed
+    SyncScript --> Developer : Exit code 0
+else Sync fails
+    SyncScript -> SyncModule : app.close() in finally
+    SyncModule --> SyncScript : Closed
+    SyncScript --> Developer : Log error and exit code 1
+end
 
 @enduml

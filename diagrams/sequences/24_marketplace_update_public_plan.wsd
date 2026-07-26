@@ -1,0 +1,57 @@
+@startuml Marketplace_Update_Public_Plan_Sequence
+
+title Marketplace - Update Public Degree Plan
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "MySubmittedDegreePlanPage" as SubmittedPlanPage
+participant "Dashboard Plan Export" as PlanExport
+participant "popular-choices-api.ts" as PopularChoicesApi
+participant "JWT AuthGuard" as JwtGuard
+participant "PublicPlansController" as PublicPlansController
+participant "PublicPlansService" as PublicPlansService
+database "PostgreSQL" as DB
+
+Student -> SubmittedPlanPage : Save changes to submitted plan
+SubmittedPlanPage -> PlanExport : Validate dashboard and rebuild snapshot
+PlanExport -> PlanExport : Render updated degree-plan image
+PlanExport --> SubmittedPlanPage : Snapshot and plan image
+SubmittedPlanPage -> PopularChoicesApi : updatePublicPlan(token, id, body)
+PopularChoicesApi -> JwtGuard : PATCH /public-plans/:id\nAuthorization: Bearer token
+
+alt Token missing or invalid
+    JwtGuard --> SubmittedPlanPage : 401 Unauthorized
+else Token valid
+    JwtGuard -> PublicPlansController : update(currentUser, id, dto)
+    PublicPlansController -> PublicPlansService : update(user.id, id, dto)
+    PublicPlansService -> DB : SELECT user faculty and degree
+    DB --> PublicPlansService : Academic profile
+
+    alt Faculty or degree is missing
+        PublicPlansService --> SubmittedPlanPage : 400 Bad Request
+    else Academic profile is complete
+        PublicPlansService -> DB : Find plan without incrementing view count
+        DB --> PublicPlansService : Public plan or null
+
+        alt Public plan not found
+            PublicPlansService --> SubmittedPlanPage : 404 Not Found
+        else Plan belongs to another user
+            PublicPlansService --> SubmittedPlanPage : 403 Forbidden
+        else Current user authored plan
+            PublicPlansService -> DB : UPDATE title, description, snapshot,\nplan image and cover image
+            DB --> PublicPlansService : Updated public plan
+            PublicPlansService --> SubmittedPlanPage : 200 OK
+            SubmittedPlanPage --> Student : Show updated submission
+        end
+    end
+end
+
+@enduml

@@ -12,42 +12,42 @@ skinparam sequence {
 }
 
 actor Student
-participant "MarketplacePage" as MarketplacePage
-participant "marketplace-api.ts" as MarketplaceApi
+participant "Public Plan Detail Page" as PlanDetailPage
+participant "popular-choices-api.ts" as PopularChoicesApi
 participant "JWT AuthGuard" as JwtGuard
 participant "PlanReviewsController" as PlanReviewsController
 participant "PlanReviewsService" as PlanReviewsService
 participant "PublicPlansService" as PublicPlansService
 database "PostgreSQL" as DB
 
-Student -> MarketplacePage : Submit comment/rating on public plan
-MarketplacePage -> MarketplaceApi : createPlanReview(token, body)
-MarketplaceApi -> JwtGuard : POST /plan-reviews\nAuthorization: Bearer token
+Student -> PlanDetailPage : Submit comment/rating on public plan
+PlanDetailPage -> PopularChoicesApi : createPlanReview(token, body)
+PopularChoicesApi -> JwtGuard : POST /plan-reviews\nAuthorization: Bearer token
 
 alt Token missing or invalid
-    JwtGuard --> MarketplaceApi : 401 Unauthorized
-    MarketplaceApi --> MarketplacePage : Display auth error
+    JwtGuard --> PopularChoicesApi : 401 Unauthorized
+    PopularChoicesApi --> PlanDetailPage : Display auth error
 else Token valid
     JwtGuard -> PlanReviewsController : create(currentUser, dto)
     PlanReviewsController -> PlanReviewsService : create(user.id, dto)
-    PlanReviewsService -> PublicPlansService : findOne(publicPlanId)
+    PlanReviewsService -> PublicPlansService : findOneWithoutViewIncrement(publicPlanId)
     PublicPlansService -> DB : SELECT public_plan by id
     DB --> PublicPlansService : public plan or null
 
     alt Public plan does not exist
         PublicPlansService --> PlanReviewsService : NotFoundException
         PlanReviewsService --> PlanReviewsController : BadRequestException
-        PlanReviewsController --> MarketplaceApi : 400 Bad Request
+        PlanReviewsController --> PopularChoicesApi : 400 Bad Request
     else Public plan exists
         PublicPlansService --> PlanReviewsService : public plan
         PlanReviewsService -> DB : INSERT plan_reviews
         DB --> PlanReviewsService : Created plan review
         PlanReviewsService --> PlanReviewsController : Created plan review
-        PlanReviewsController --> MarketplaceApi : 201 Created
+        PlanReviewsController --> PopularChoicesApi : 201 Created
     end
 
-    MarketplaceApi --> MarketplacePage : Result or error
-    MarketplacePage --> Student : Refresh public plan comments
+    PopularChoicesApi --> PlanDetailPage : Result or error
+    PlanDetailPage --> Student : Refresh public plan comments
 end
 
 @enduml

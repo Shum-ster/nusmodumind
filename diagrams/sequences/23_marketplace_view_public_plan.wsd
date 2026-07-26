@@ -1,0 +1,38 @@
+@startuml Marketplace_View_Public_Plan_Sequence
+
+title Marketplace - View Public Degree Plan
+
+hide footbox
+skinparam shadowing false
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #2F3A4A
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #FFFFFF
+}
+
+actor Student
+participant "PopularChoicesPlanDetailPage" as PlanDetailPage
+participant "popular-choices-api.ts" as PopularChoicesApi
+participant "PublicPlansController" as PublicPlansController
+participant "PublicPlansService" as PublicPlansService
+database "PostgreSQL" as DB
+
+Student -> PlanDetailPage : Open /popular-choices/plans/{id}
+PlanDetailPage -> PopularChoicesApi : getPublicPlan(id)
+PopularChoicesApi -> PublicPlansController : GET /public-plans/:id
+PublicPlansController -> PublicPlansService : findOne(id)
+PublicPlansService -> DB : UPDATE view_count = view_count + 1\nRETURN plan, author and reviews
+
+alt Public plan does not exist
+    DB --> PublicPlansService : Record not found
+    PublicPlansService --> PlanDetailPage : 404 Not Found
+    PlanDetailPage --> Student : Show plan-not-found state
+else Public plan exists
+    DB --> PublicPlansService : Updated public plan detail
+    PublicPlansService --> PopularChoicesApi : Plan, images, author and reviews
+    PopularChoicesApi --> PlanDetailPage : Public plan detail
+    PlanDetailPage --> Student : Render plan image, metadata,\nview count and reviews
+end
+
+@enduml
