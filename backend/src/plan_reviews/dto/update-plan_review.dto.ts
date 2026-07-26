@@ -1,4 +1,20 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreatePlanReviewDto } from './create-plan_review.dto';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
-export class UpdatePlanReviewDto extends PartialType(CreatePlanReviewDto) {}
+export class UpdatePlanReviewDto {
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  rating: number;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  content: string;
+}

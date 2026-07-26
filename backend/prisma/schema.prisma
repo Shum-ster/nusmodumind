@@ -28,6 +28,7 @@ model User {
   plannedModules            PlannedModule[]
   moduleReviews             ModuleReview[]
   publicPlans               PublicPlan[]               @relation("AuthoredPlans")
+  publicPlanLikes           PublicPlanLike[]
   planReviews               PlanReview[]
   moduleUpdateNotifications ModuleUpdateNotification[]
 
@@ -143,14 +144,27 @@ model PublicPlan {
   planSnapshot      Json     @map("plan_snapshot") // Stores the frozen state of the user's semesters
   planImageDataUrl  String?  @map("plan_image_data_url") @db.Text
   coverImageDataUrl String?  @map("cover_image_data_url") @db.Text
-  upvotes           Int      @default(0)
   viewCount         Int      @default(0) @map("view_count")
   createdAt         DateTime @default(now()) @map("created_at")
 
   author  User         @relation("AuthoredPlans", fields: [authorId], references: [id], onDelete: Cascade)
+  likes   PublicPlanLike[]
   reviews PlanReview[]
 
   @@map("public_plans")
+}
+
+model PublicPlanLike {
+  userId       String   @map("user_id") @db.Uuid
+  publicPlanId String   @map("public_plan_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publicPlan PublicPlan @relation(fields: [publicPlanId], references: [id], onDelete: Cascade)
+
+  @@id([userId, publicPlanId])
+  @@index([publicPlanId])
+  @@map("public_plan_likes")
 }
 
 model PlanReview {
@@ -164,5 +178,6 @@ model PlanReview {
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   publicPlan PublicPlan @relation(fields: [publicPlanId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, publicPlanId])
   @@map("plan_reviews")
 }

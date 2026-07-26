@@ -9,6 +9,7 @@ describe('PlanReviewsController', () => {
     create: jest.Mock;
     findByPlan: jest.Mock;
     findOne: jest.Mock;
+    update: jest.Mock;
     remove: jest.Mock;
   };
 
@@ -30,6 +31,7 @@ describe('PlanReviewsController', () => {
       create: jest.fn().mockResolvedValue(review),
       findByPlan: jest.fn().mockResolvedValue([review]),
       findOne: jest.fn().mockResolvedValue(review),
+      update: jest.fn().mockResolvedValue(review),
       remove: jest.fn().mockResolvedValue(review),
     };
 
@@ -71,5 +73,14 @@ describe('PlanReviewsController', () => {
   it('removes a plan review for the current user', async () => {
     await expect(controller.remove(user, review.id)).resolves.toEqual(review);
     expect(service.remove).toHaveBeenCalledWith(user.id, review.id);
+  });
+
+  it('updates a plan review for the current user', async () => {
+    const dto = { rating: 9, content: 'Updated review' };
+
+    await expect(controller.update(user, review.id, dto)).resolves.toEqual(
+      review,
+    );
+    expect(service.update).toHaveBeenCalledWith(user.id, review.id, dto);
   });
 });

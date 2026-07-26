@@ -485,7 +485,20 @@ describe('Application API (e2e)', () => {
       .get('/public-plans')
       .query({ degree: 'Computer Science', faculty: 'School of Computing' })
       .expect(200)
-      .expect(({ body }) => expect(body).toHaveLength(1));
+      .expect(({ body }) => {
+        expect(body.items).toHaveLength(1);
+        expect(body.nextPage).toBeNull();
+        expect(body.items[0]).toMatchObject({
+          id: plan.id,
+          upvotes: 0,
+          viewCount: 0,
+        });
+        expect(body.items[0].description).toBeUndefined();
+        expect(body.items[0].planSnapshot).toBeUndefined();
+        expect(body.items[0].planImageDataUrl).toBeUndefined();
+        expect(body.items[0].reviews).toBeUndefined();
+        expect(body.items[0].authorId).toBeUndefined();
+      });
 
     await request(app.getHttpServer())
       .get('/public-plans/me')
@@ -496,7 +509,41 @@ describe('Application API (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/public-plans/${plan.id}`)
       .expect(200)
-      .expect(({ body }) => expect(body.viewCount).toBe(1));
+      .expect(({ body }) => {
+        expect(body.viewCount).toBe(1);
+        expect(body.planSnapshot).toEqual({ semesters: [] });
+        expect(body.planImageDataUrl).toBe(planImageDataUrl);
+        expect(body.reviews).toEqual([]);
+      });
+
+    await request(app.getHttpServer())
+      .get(`/public-plans/${plan.id}/like`)
+      .set(auth(author.token))
+      .expect(200)
+      .expect({ canLike: false, liked: false, upvotes: 0 });
+
+    await request(app.getHttpServer())
+      .put(`/public-plans/${plan.id}/like`)
+      .set(auth(author.token))
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .put(`/public-plans/${plan.id}/like`)
+      .set(auth(reviewer.token))
+      .expect(200)
+      .expect({ canLike: true, liked: true, upvotes: 1 });
+
+    await request(app.getHttpServer())
+      .put(`/public-plans/${plan.id}/like`)
+      .set(auth(reviewer.token))
+      .expect(200)
+      .expect({ canLike: true, liked: true, upvotes: 1 });
+
+    await request(app.getHttpServer())
+      .get(`/public-plans/${plan.id}/like`)
+      .set(auth(reviewer.token))
+      .expect(200)
+      .expect({ canLike: true, liked: true, upvotes: 1 });
 
     await request(app.getHttpServer())
       .patch(`/public-plans/${plan.id}`)
@@ -525,6 +572,16 @@ describe('Application API (e2e)', () => {
       .post('/plan-reviews')
       .set(auth(reviewer.token))
       .send({
+        content: 'Duplicate review.',
+        publicPlanId: plan.id,
+        rating: 8,
+      })
+      .expect(409);
+
+    await request(app.getHttpServer())
+      .post('/plan-reviews')
+      .set(auth(reviewer.token))
+      .send({
         content: 'Missing plan',
         publicPlanId: '00000000-0000-4000-8000-000000000000',
         rating: 5,
@@ -541,6 +598,25 @@ describe('Application API (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
+      .patch(`/plan-reviews/${planReview.id}`)
+      .set(auth(author.token))
+      .send({ content: 'Not mine', rating: 2 })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(`/plan-reviews/${planReview.id}`)
+      .set(auth(reviewer.token))
+      .send({ content: 'Updated useful reference.', rating: 10 })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          content: 'Updated useful reference.',
+          publicPlanId: plan.id,
+          rating: 10,
+        });
+      });
+
+    await request(app.getHttpServer())
       .delete(`/plan-reviews/${planReview.id}`)
       .set(auth(author.token))
       .expect(403);
@@ -551,6 +627,18 @@ describe('Application API (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
+      .delete(`/public-plans/${plan.id}/like`)
+      .set(auth(reviewer.token))
+      .expect(200)
+      .expect({ canLike: true, liked: false, upvotes: 0 });
+
+    await request(app.getHttpServer())
+      .delete(`/public-plans/${plan.id}/like`)
+      .set(auth(reviewer.token))
+      .expect(200)
+      .expect({ canLike: true, liked: false, upvotes: 0 });
+
+    await request(app.getHttpServer())
       .delete(`/public-plans/${plan.id}`)
       .set(auth(author.token))
       .expect(200);
@@ -558,6 +646,88 @@ describe('Application API (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/public-plans/${plan.id}`)
       .expect(404);
+  });
+
+  it('paginates lightweight marketplace results without duplicates', async () => {
+    const users = await Promise.all(
+      Array.from({ length: 21 }, (_, index) =>
+        prisma.user.create({
+          data: {
+            degree: 'Computer Science',
+            email: `marketplace-${index}@u.nus.edu`,
+            faculty: 'School of Computing',
+            passwordHash: 'not-used-by-this-test',
+            username: `Student ${index}`,
+          },
+        }),
+      ),
+    );
+    const plans = await Promise.all(
+      users.map((user, index) =>
+        prisma.publicPlan.create({
+          data: {
+            authorId: user.id,
+            createdAt: new Date(
+              `2026-07-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+            ),
+            description: `Detail ${index}`,
+            planImageDataUrl,
+            planSnapshot: { index },
+            title: `Plan ${index}`,
+          },
+        }),
+      ),
+    );
+    await prisma.publicPlanLike.createMany({
+      data: [
+        { publicPlanId: plans[0].id, userId: users[1].id },
+        { publicPlanId: plans[0].id, userId: users[2].id },
+        { publicPlanId: plans[1].id, userId: users[2].id },
+      ],
+    });
+
+    const firstPage = await request(app.getHttpServer())
+      .get('/public-plans')
+      .query({ page: 1 })
+      .expect(200)
+      .then(
+        ({ body }) =>
+          body as {
+            items: Array<Record<string, unknown>>;
+            nextPage: number | null;
+          },
+      );
+    const secondPage = await request(app.getHttpServer())
+      .get('/public-plans')
+      .query({ page: 2 })
+      .expect(200)
+      .then(
+        ({ body }) =>
+          body as {
+            items: Array<Record<string, unknown>>;
+            nextPage: number | null;
+          },
+      );
+
+    expect(firstPage.items).toHaveLength(20);
+    expect(firstPage.nextPage).toBe(2);
+    expect(secondPage.items).toHaveLength(1);
+    expect(secondPage.nextPage).toBeNull();
+    expect(firstPage.items[0]).toMatchObject({
+      id: plans[0].id,
+      upvotes: 2,
+    });
+    expect(
+      new Set([...firstPage.items, ...secondPage.items].map((item) => item.id))
+        .size,
+    ).toBe(21);
+    for (const item of [...firstPage.items, ...secondPage.items]) {
+      expect(item).not.toHaveProperty('description');
+      expect(item).not.toHaveProperty('planSnapshot');
+      expect(item).not.toHaveProperty('planImageDataUrl');
+      expect(item).not.toHaveProperty('reviews');
+      expect(item).not.toHaveProperty('authorId');
+    }
   });
 
   it('streams AI text and exposes the recommendation workflow', async () => {

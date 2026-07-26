@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../shared/types';
 import { PlanReviewsService } from './plan_reviews.service';
 import { CreatePlanReviewDto } from './dto/create-plan_review.dto';
+import { UpdatePlanReviewDto } from './dto/update-plan_review.dto';
 
 @Controller('plan-reviews')
 export class PlanReviewsController {
@@ -35,6 +37,16 @@ export class PlanReviewsController {
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.planReviewsService.findOne(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':id')
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updatePlanReviewDto: UpdatePlanReviewDto,
+  ) {
+    return this.planReviewsService.update(user.id, id, updatePlanReviewDto);
   }
 
   @UseGuards(AuthGuard('jwt'))

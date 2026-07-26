@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -36,12 +37,16 @@ export class PublicPlansController {
     @Query('degree') degree?: string,
     @Query('faculties') faculties?: string,
     @Query('degrees') degrees?: string,
+    @Query('page') page?: string,
   ) {
+    const parsedPage = page ? Number.parseInt(page, 10) : undefined;
+
     return this.publicPlansService.findAll({
       degree,
       degrees: parseDelimitedQueryValues(degrees),
       faculties: parseDelimitedQueryValues(faculties),
       faculty,
+      page: Number.isNaN(parsedPage) ? undefined : parsedPage,
     });
   }
 
@@ -54,6 +59,33 @@ export class PublicPlansController {
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.publicPlansService.findOne(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id/like')
+  getLikeState(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.publicPlansService.getLikeState(user.id, id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Put(':id/like')
+  like(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.publicPlansService.like(user.id, id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete(':id/like')
+  unlike(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.publicPlansService.unlike(user.id, id);
   }
 
   @UseGuards(AuthGuard('jwt'))
