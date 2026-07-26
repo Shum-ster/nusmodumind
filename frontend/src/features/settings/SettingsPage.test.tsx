@@ -50,7 +50,7 @@ describe("SettingsPage", () => {
     expect(major).toBeEnabled();
     expect(
       screen.getByRole("option", {
-        name: "Common Computer Science Programmes",
+        name: "Computer Science",
       }),
     ).toBeInTheDocument();
   });
@@ -62,7 +62,7 @@ describe("SettingsPage", () => {
     await user.selectOptions(screen.getByLabelText("Faculty"), "computing");
     await user.selectOptions(
       screen.getByLabelText("Major"),
-      "Common Computer Science Programmes",
+      "Computer Science",
     );
     await user.type(screen.getByLabelText("Matriculation Year"), "2026");
     await user.type(
@@ -75,7 +75,7 @@ describe("SettingsPage", () => {
 
     await waitFor(() =>
       expect(profileMocks.updateProfile).toHaveBeenCalledWith({
-        degree: "Common Computer Science Programmes",
+        degree: "Computer Science",
         faculty: "School of Computing",
         graduationYear: 2030,
         lifestylePreferences: "Avoid 8am classes",
@@ -117,7 +117,7 @@ describe("SettingsPage", () => {
         academicProfileChangeAllowedAt: new Date(
           Date.now() + 60_000,
         ).toISOString(),
-        degree: "Common Computer Science Programmes",
+        degree: "Computer Science",
         faculty: "School of Computing",
         matriculationYear: 2026,
       },
@@ -134,6 +134,33 @@ describe("SettingsPage", () => {
     expect(
       screen.getByText(/can be changed again/i),
     ).toBeVisible();
+  });
+
+  it("preserves an unresolved legacy major until the user replaces it", async () => {
+    profileMocks.useUserProfile.mockReturnValue({
+      isLoadingProfile: false,
+      profile: {
+        ...baseProfile,
+        degree: "Legacy Computing Programme",
+        faculty: "School of Computing",
+      },
+      profileError: null,
+      updateProfile: profileMocks.updateProfile,
+    });
+
+    render(<SettingsPage />);
+
+    await screen.findByRole("option", {
+      name: "Legacy Computing Programme (current profile value)",
+    });
+    expect(screen.getByLabelText("Major")).toHaveValue(
+      "Legacy Computing Programme",
+    );
+    expect(
+      screen.getByRole("option", {
+        name: "Legacy Computing Programme (current profile value)",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("validates password confirmation", async () => {

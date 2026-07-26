@@ -96,7 +96,7 @@ export function SettingsPage() {
       );
 
       setFacultyId(nextFacultyId);
-      setMajor(nextMajor?.title ?? "");
+      setMajor(nextMajor?.title ?? profile.degree ?? "");
       setLifestylePreferences(profile.lifestylePreferences ?? "");
     });
 
@@ -339,6 +339,12 @@ export function SettingsPage() {
                 <option value="">
                   {facultyId ? "Select major" : "Select a faculty first"}
                 </option>
+                {major &&
+                !popularChoiceFaculties
+                  .find((faculty) => faculty.id === facultyId)
+                  ?.degrees.some((degree) => degree.title === major) ? (
+                  <option value={major}>{major} (current profile value)</option>
+                ) : null}
                 {popularChoiceFaculties
                   .find((faculty) => faculty.id === facultyId)
                   ?.degrees.map((degree) => (

@@ -1,4 +1,12 @@
-import { IsString, IsUUID, IsNotEmpty, IsInt, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  IsNotEmpty,
+  IsInt,
+  MaxLength,
+  Min,
+  Max,
+} from 'class-validator';
 
 export class CreatePlanReviewDto {
   @IsUUID()
@@ -11,5 +19,6 @@ export class CreatePlanReviewDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(2000)
   content: string;
 }

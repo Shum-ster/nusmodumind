@@ -13,9 +13,7 @@ describe("Popular Choices data", () => {
     expect(getPopularChoiceFaculty("computing")?.title).toBe(
       "School of Computing",
     );
-    expect(getPopularChoiceFaculty("science")?.id).toBe(
-      "humanities-and-sciences",
-    );
+    expect(getPopularChoiceFaculty("science")?.id).toBe("science");
   });
 
   it("resolves legacy degree names to the current selection", () => {
@@ -25,9 +23,15 @@ describe("Popular Choices data", () => {
     expect(
       getPopularChoiceDegree(
         "computing",
-        "common-computer-science-programmes",
+        "computer-science",
       )?.title,
-    ).toBe("Common Computer Science Programmes");
+    ).toBe("Computer Science");
+    expect(
+      getPopularChoiceFacultyForProfile(
+        "College of Humanities and Sciences",
+        "Mathematics",
+      )?.id,
+    ).toBe("science");
   });
 
   it("builds unique backend filter values", () => {
@@ -35,7 +39,7 @@ describe("Popular Choices data", () => {
       (faculty) => faculty.id === "computing",
     );
     const computerScience = computing?.degrees.find(
-      (degree) => degree.id === "common-computer-science-programmes",
+      (degree) => degree.id === "computer-science",
     );
 
     expect(getPopularChoiceFacultyFilterValues(computing!)).toEqual([
@@ -45,5 +49,31 @@ describe("Popular Choices data", () => {
     expect(getPopularChoiceDegreeFilterValues(computerScience!)).toContain(
       "Computer Science",
     );
+  });
+
+  it("contains the expected explicit majors under their current faculties", () => {
+    const majorsByFaculty = new Map(
+      popularChoiceFaculties.map((faculty) => [
+        faculty.title,
+        faculty.degrees.map((degree) => degree.title),
+      ]),
+    );
+
+    expect(majorsByFaculty.get("NUS Business School")).toContain("Finance");
+    expect(majorsByFaculty.get("School of Computing")).toContain(
+      "Computer Science",
+    );
+    expect(
+      majorsByFaculty.get("College of Design and Engineering"),
+    ).toContain("Mechanical Engineering");
+    expect(
+      majorsByFaculty.get("Faculty of Arts and Social Sciences"),
+    ).toContain("Psychology");
+    expect(majorsByFaculty.get("Faculty of Science")).toEqual(
+      expect.arrayContaining(["Mathematics", "Pharmacy"]),
+    );
+    expect(
+      majorsByFaculty.get("Yong Loo Lin School of Medicine"),
+    ).toContain("Nursing");
   });
 });

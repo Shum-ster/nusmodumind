@@ -6,18 +6,26 @@ export type PlanAuthorSummary = {
   degree: string | null;
 };
 
-export type PublicPlan = {
+export type PublicPlanListItem = {
   id: string;
-  authorId: string;
   title: string;
-  description: string | null;
-  planSnapshot: unknown;
-  planImageDataUrl: string | null;
   coverImageDataUrl: string | null;
   upvotes: number;
   viewCount: number;
   createdAt: string;
   author: PlanAuthorSummary;
+};
+
+export type PublicPlansPage = {
+  items: PublicPlanListItem[];
+  nextPage: number | null;
+};
+
+export type PublicPlan = PublicPlanListItem & {
+  authorId: string;
+  description: string | null;
+  planSnapshot: unknown;
+  planImageDataUrl: string | null;
 };
 
 export type PublicPlanDetail = PublicPlan & {
@@ -29,6 +37,13 @@ export type PublicPlansQuery = {
   degree?: string | null;
   faculties?: string | null;
   degrees?: string | null;
+  page?: number | null;
+};
+
+export type PublicPlanLikeState = {
+  liked: boolean;
+  canLike: boolean;
+  upvotes: number;
 };
 
 export type CreatePublicPlanBody = {

@@ -33,3 +33,8 @@ export type CreatePlanReviewBody = {
   rating: number;
   content: string;
 };
+
+export type UpdatePlanReviewBody = {
+  rating: number;
+  content: string;
+};

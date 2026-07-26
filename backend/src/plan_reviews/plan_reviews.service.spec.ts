@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicPlansService } from '../public_plans/public_plans.service';
@@ -16,6 +18,7 @@ describe('PlanReviewsService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       delete: jest.Mock;
+      update: jest.Mock;
     };
   };
   let publicPlansService: { findOneWithoutViewIncrement: jest.Mock };
@@ -41,6 +44,7 @@ describe('PlanReviewsService', () => {
         findMany: jest.fn().mockResolvedValue([review]),
         findUnique: jest.fn().mockResolvedValue(review),
         delete: jest.fn().mockResolvedValue(review),
+        update: jest.fn().mockResolvedValue(review),
       },
     };
     publicPlansService = {
@@ -77,7 +81,27 @@ describe('PlanReviewsService', () => {
     );
     expect(prisma.planReview.create).toHaveBeenCalledWith({
       data: { ...data, userId: review.userId },
+      include: {
+        user: { select: reviewerSelect },
+      },
     });
+  });
+
+  it('returns a conflict when the user already reviewed the plan', async () => {
+    prisma.planReview.create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('duplicate', {
+        clientVersion: 'test',
+        code: 'P2002',
+      }),
+    );
+
+    await expect(
+      service.create(review.userId, {
+        publicPlanId: review.publicPlanId,
+        rating: 8,
+        content: 'Duplicate review',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('throws a bad request when the public plan does not exist', async () => {
@@ -133,6 +157,31 @@ describe('PlanReviewsService', () => {
     expect(prisma.planReview.delete).toHaveBeenCalledWith({
       where: { id: review.id },
     });
+  });
+
+  it('updates a plan review for the owner', async () => {
+    const update = { rating: 9, content: 'Updated review' };
+    prisma.planReview.update.mockResolvedValueOnce({ ...review, ...update });
+
+    await expect(
+      service.update(review.userId, review.id, update),
+    ).resolves.toEqual({ ...review, ...update });
+    expect(prisma.planReview.update).toHaveBeenCalledWith({
+      where: { id: review.id },
+      data: update,
+      include: {
+        user: { select: reviewerSelect },
+      },
+    });
+  });
+
+  it('rejects editing another user plan review', async () => {
+    await expect(
+      service.update('44444444-4444-4444-4444-444444444444', review.id, {
+        rating: 2,
+        content: 'Nope',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('rejects deleting another user plan review', async () => {

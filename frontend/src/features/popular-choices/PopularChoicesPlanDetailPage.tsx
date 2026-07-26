@@ -1,8 +1,9 @@
 'use client';
 
-import { ArrowLeft, Eye, Heart, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { PlanReviewsSection, PublicPlanLikeButton } from './components';
 import { getPublicPlan, type PublicPlanDetail } from './popular-choices-api';
 
 type PopularChoicesPlanDetailPageProps = {
@@ -120,10 +121,10 @@ export function PopularChoicesPlanDetailPage({
           </div>
 
           <div className="grid gap-2 text-sm font-bold text-gray-700 sm:grid-cols-2">
-            <div className="inline-flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2">
-              <Heart className="h-4 w-4 fill-orange-500 text-orange-500" />
-              {plan.upvotes.toLocaleString()} likes
-            </div>
+            <PublicPlanLikeButton
+              planId={plan.id}
+              initialUpvotes={plan.upvotes}
+            />
             <div className="inline-flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2">
               <Eye className="h-4 w-4 text-gray-500" />
               {plan.viewCount.toLocaleString()} views
@@ -163,42 +164,11 @@ export function PopularChoicesPlanDetailPage({
         )}
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-orange-600" />
-          <h2 className="text-lg font-bold text-gray-950">Reviews</h2>
-        </div>
-
-        {plan.reviews.length > 0 ? (
-          <div className="grid gap-3">
-            {plan.reviews.map((review) => (
-              <article
-                key={review.id}
-                className="rounded-lg border border-gray-200 bg-gray-50 p-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="break-words text-sm font-bold text-gray-950">
-                    {review.user.username?.trim() || 'NUS student'}
-                  </p>
-                  <p className="text-xs font-medium text-gray-500">
-                    {formatPlanDate(review.createdAt)}
-                  </p>
-                </div>
-                <p className="mt-1 text-sm font-bold text-gray-950">
-                  {review.rating.toFixed(1)} / 10
-                </p>
-                <p className="mt-3 whitespace-pre-line text-sm leading-6 text-gray-700">
-                  {review.content}
-                </p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm font-medium text-gray-500">
-            No reviews have been added for this degree plan yet.
-          </p>
-        )}
-      </section>
+      <PlanReviewsSection
+        key={plan.id}
+        planId={plan.id}
+        initialReviews={plan.reviews}
+      />
     </div>
   );
 }

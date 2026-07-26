@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { PublicPlan } from '../popular-choices-api';
+import type { PublicPlanListItem } from '../popular-choices-api';
 import { DegreePlanCard } from './DegreePlanCard';
 
 const PAGE_SIZE = 5;
@@ -10,7 +10,7 @@ const PRELOAD_SIZE = 10;
 
 type DegreePlanRailProps = {
   title: string;
-  plans: PublicPlan[];
+  plans: PublicPlanListItem[];
 };
 
 export function DegreePlanRail({ title, plans }: DegreePlanRailProps) {
@@ -22,7 +22,13 @@ export function DegreePlanRail({ title, plans }: DegreePlanRailProps) {
     railRef.current?.scrollTo({ left: 0 });
   }, [plans]);
 
-  const visiblePlans = plans.slice(0, loadedCount);
+  const visiblePlans = plans.slice(
+    0,
+    Math.min(
+      plans.length,
+      Math.max(loadedCount, Math.min(PRELOAD_SIZE, plans.length)),
+    ),
+  );
   const hasPrevious = activeIndex > 0;
   const hasNext = activeIndex + PAGE_SIZE < plans.length;
 
