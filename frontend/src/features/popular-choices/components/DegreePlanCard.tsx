@@ -1,14 +1,14 @@
 import { Eye, Heart } from 'lucide-react';
 import Link from 'next/link';
-import type { PublicPlan } from '../popular-choices-api';
+import type { PublicPlanListItem } from '../popular-choices-api';
 
 type DegreePlanCardProps = {
-  plan: PublicPlan;
+  plan: PublicPlanListItem;
 };
 
 export function DegreePlanCard({ plan }: DegreePlanCardProps) {
   const authorLabel = plan.author.username?.trim() || 'NUS student';
-  const previewImageUrl = plan.coverImageDataUrl || plan.planImageDataUrl;
+  const previewImageUrl = plan.coverImageDataUrl;
 
   return (
     <Link

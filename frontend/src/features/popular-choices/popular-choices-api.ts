@@ -5,7 +5,10 @@ import type {
   PlanReview,
   PublicPlan,
   PublicPlanDetail,
+  PublicPlanLikeState,
+  PublicPlansPage,
   PublicPlansQuery,
+  UpdatePlanReviewBody,
   UpdatePublicPlanBody,
 } from '@/shared/types';
 
@@ -16,12 +19,16 @@ export type {
   PlanReview,
   PublicPlan,
   PublicPlanDetail,
+  PublicPlanLikeState,
+  PublicPlanListItem,
+  PublicPlansPage,
   PublicPlansQuery,
+  UpdatePlanReviewBody,
   UpdatePublicPlanBody,
 } from '@/shared/types';
 
 export function getPublicPlans(query: PublicPlansQuery = {}) {
-  return apiRequest<PublicPlan[]>('/public-plans', { query });
+  return apiRequest<PublicPlansPage>('/public-plans', { query });
 }
 
 export function getPublicPlan(id: string) {
@@ -59,6 +66,33 @@ export function deletePublicPlan(token: string, id: string) {
   });
 }
 
+export function getPublicPlanLikeState(token: string, id: string) {
+  return apiRequest<PublicPlanLikeState>(
+    `/public-plans/${encodeURIComponent(id)}/like`,
+    { token },
+  );
+}
+
+export function likePublicPlan(token: string, id: string) {
+  return apiRequest<PublicPlanLikeState>(
+    `/public-plans/${encodeURIComponent(id)}/like`,
+    {
+      method: 'PUT',
+      token,
+    },
+  );
+}
+
+export function unlikePublicPlan(token: string, id: string) {
+  return apiRequest<PublicPlanLikeState>(
+    `/public-plans/${encodeURIComponent(id)}/like`,
+    {
+      method: 'DELETE',
+      token,
+    },
+  );
+}
+
 export function getPlanReviews(publicPlanId: string) {
   return apiRequest<PlanReview[]>(
     `/plan-reviews/plan/${encodeURIComponent(publicPlanId)}`,
@@ -72,6 +106,18 @@ export function getPlanReview(id: string) {
 export function createPlanReview(token: string, body: CreatePlanReviewBody) {
   return apiRequest<PlanReview>('/plan-reviews', {
     method: 'POST',
+    token,
+    body,
+  });
+}
+
+export function updatePlanReview(
+  token: string,
+  id: string,
+  body: UpdatePlanReviewBody,
+) {
+  return apiRequest<PlanReview>(`/plan-reviews/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
     token,
     body,
   });

@@ -66,3 +66,9 @@ Object.defineProperty(globalThis, "ResizeObserver", {
   configurable: true,
   value: ResizeObserverMock,
 });
+
+Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+  configurable: true,
+  value: vi.fn(),
+  writable: true,
+});
