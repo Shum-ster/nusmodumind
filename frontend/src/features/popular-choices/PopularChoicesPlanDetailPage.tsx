@@ -3,7 +3,11 @@
 import { ArrowLeft, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { PlanReviewsSection, PublicPlanLikeButton } from './components';
+import {
+  DegreePlanSnapshotView,
+  PlanReviewsSection,
+  PublicPlanLikeButton,
+} from './components';
 import { getPublicPlan, type PublicPlanDetail } from './popular-choices-api';
 
 type PopularChoicesPlanDetailPageProps = {
@@ -158,9 +162,7 @@ export function PopularChoicesPlanDetailPage({
             className="mt-4 w-full rounded-md border border-gray-200"
           />
         ) : (
-          <pre className="mt-4 max-h-[32rem] overflow-auto rounded-md bg-gray-900 p-4 text-xs leading-5 text-gray-100">
-            {JSON.stringify(plan.planSnapshot, null, 2)}
-          </pre>
+          <DegreePlanSnapshotView snapshot={plan.planSnapshot} />
         )}
       </section>
 
