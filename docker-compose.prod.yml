@@ -12,7 +12,20 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    image: nusmodumind-backend
+    build:
+      context: ./backend
+    restart: "no"
+    env_file:
+      - ./.env.production
+    command: npx prisma migrate deploy
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
+    image: nusmodumind-backend
     build:
       context: ./backend
     restart: unless-stopped
@@ -23,6 +36,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   frontend:
     build:
