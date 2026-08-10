@@ -17,6 +17,7 @@ export type TimetableModule = {
   selectedLessons: TimetableLesson[];
   availableLessons: TimetableLesson[];
   examDate: string | null;
+  isTimetableDataAvailable: boolean;
 };
 
 export type TimetableLesson = {

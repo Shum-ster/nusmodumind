@@ -208,6 +208,7 @@ export class NusModulesCronService {
     return Prisma.sql`
       INSERT INTO "nus_modules" (
         "module_code",
+        "source_acad_year",
         "title",
         "description",
         "module_credit",
@@ -223,6 +224,11 @@ export class NusModulesCronService {
       )
       VALUES ${Prisma.join(rows)}
       ON CONFLICT ("module_code") DO UPDATE SET
+        "source_acad_year" = CASE
+          WHEN EXCLUDED."semester_data" IS NULL
+            THEN "nus_modules"."source_acad_year"
+          ELSE EXCLUDED."source_acad_year"
+        END,
         "title" = EXCLUDED."title",
         "description" = EXCLUDED."description",
         "module_credit" = EXCLUDED."module_credit",
@@ -251,6 +257,7 @@ export class NusModulesCronService {
 
     return Prisma.sql`(
       ${moduleInfo.moduleCode},
+      ${this.PLANNING_ACAD_YEAR},
       ${moduleData.title},
       ${moduleData.description},
       ${moduleData.moduleCredit},
@@ -272,6 +279,7 @@ export class NusModulesCronService {
 
   private mapNusModsModule(moduleInfo: NusModsModuleInfo): NusModuleUpsertData {
     return {
+      sourceAcadYear: this.PLANNING_ACAD_YEAR,
       title: moduleInfo.title,
       description: moduleInfo.description ?? '',
       moduleCredit: moduleInfo.moduleCredit ?? '',

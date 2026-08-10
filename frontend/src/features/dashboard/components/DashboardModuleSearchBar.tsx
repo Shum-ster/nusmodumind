@@ -32,6 +32,7 @@ function toDashboardModule(module: NusModuleListItem): DashboardModule {
     isSuEligible: isModuleSuEligible(module.attributes),
     prerequisite: module.prerequisite,
     semesterData: module.semesterData,
+    sourceAcadYear: module.sourceAcadYear,
   };
 }
 

@@ -52,11 +52,31 @@ describe("course utilities", () => {
   it("loads every cursor page", async () => {
     vi.mocked(searchNusModules)
       .mockResolvedValueOnce({
-        items: [{ moduleCode: "CS1010S", title: "Programming Methodology" }],
+        items: [
+          {
+            moduleCode: "CS1010S",
+            sourceAcadYear: "2026/2027",
+            title: "Programming Methodology",
+            faculty: "School of Computing",
+            department: "Computer Science",
+            moduleCredit: "4",
+            gradingBasisDescription: "Graded",
+          },
+        ],
         nextCursor: "CS1010S",
       })
       .mockResolvedValueOnce({
-        items: [{ moduleCode: "CS2030S", title: "Programming Methodology II" }],
+        items: [
+          {
+            moduleCode: "CS2030S",
+            sourceAcadYear: "2026/2027",
+            title: "Programming Methodology II",
+            faculty: "School of Computing",
+            department: "Computer Science",
+            moduleCredit: "4",
+            gradingBasisDescription: "Graded",
+          },
+        ],
         nextCursor: null,
       });
 

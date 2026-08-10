@@ -8,6 +8,7 @@ describe('NusmoduleService', () => {
 
   const nusModule = {
     moduleCode: 'CS1010S',
+    sourceAcadYear: '2026/2027',
     title: 'Programming Methodology',
     description: 'Introductory programming module',
     moduleCredit: '4',
@@ -25,6 +26,7 @@ describe('NusmoduleService', () => {
 
   const listItem = {
     moduleCode: nusModule.moduleCode,
+    sourceAcadYear: nusModule.sourceAcadYear,
     title: nusModule.title,
     description: nusModule.description,
     moduleCredit: nusModule.moduleCredit,
@@ -69,6 +71,7 @@ describe('NusmoduleService', () => {
       take: 21,
       select: {
         moduleCode: true,
+        sourceAcadYear: true,
         title: true,
         description: true,
         faculty: true,

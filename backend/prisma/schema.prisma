@@ -37,6 +37,7 @@ model User {
 
 model NusModule {
   moduleCode              String   @id @map("module_code")
+  sourceAcadYear          String   @map("source_acad_year")
   title                   String
   description             String?
   moduleCredit            String   @map("module_credit")
@@ -66,6 +67,7 @@ model Semester {
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   plannedModules PlannedModule[]
 
+  @@unique([userId, acadYear, semesterNumber])
   @@map("semesters")
 }
 

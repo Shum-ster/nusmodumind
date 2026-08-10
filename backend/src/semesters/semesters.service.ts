@@ -16,11 +16,16 @@ export class SemestersService {
     userId: string,
     createSemesterDto: CreateSemesterDto,
   ): Promise<Semester> {
-    return this.prisma.semester.create({
-      data: {
-        ...createSemesterDto,
-        userId,
+    return this.prisma.semester.upsert({
+      where: {
+        userId_acadYear_semesterNumber: {
+          userId,
+          acadYear: createSemesterDto.acadYear,
+          semesterNumber: createSemesterDto.semesterNumber,
+        },
       },
+      create: { ...createSemesterDto, userId },
+      update: {},
     });
   }
 
