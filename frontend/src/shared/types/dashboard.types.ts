@@ -34,6 +34,7 @@ export type DashboardModule = {
   isSuEligible?: boolean;
   prerequisite?: string | null;
   semesterData?: unknown;
+  sourceAcadYear?: string;
 };
 
 export type YearNumber = 1 | 2 | 3 | 4;

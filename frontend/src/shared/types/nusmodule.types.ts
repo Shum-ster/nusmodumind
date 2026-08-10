@@ -1,5 +1,6 @@
 export type NusModuleListItem = {
   moduleCode: string;
+  sourceAcadYear: string;
   title: string;
   description?: string | null;
   faculty: string;
@@ -19,6 +20,7 @@ export type NusModuleSearchResponse = {
 
 export type NusModuleDetail = {
   moduleCode: string;
+  sourceAcadYear: string;
   title: string;
   description: string;
   moduleCredit: string;

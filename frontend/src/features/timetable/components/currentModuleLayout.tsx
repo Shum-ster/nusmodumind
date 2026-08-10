@@ -16,7 +16,9 @@ export function CurrentModuleLayout({ modules }: CurrentModuleLayoutProps) {
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-gray-950">Current Modules</h2>
-          <p className="mt-1 text-sm font-medium text-gray-500">Modules with timetable data for this semester.</p>
+          <p className="mt-1 text-sm font-medium text-gray-500">
+            Modules placed in this semester on the dashboard.
+          </p>
         </div>
 
         <div className="text-right text-sm font-medium text-gray-500">
@@ -41,8 +43,17 @@ export function CurrentModuleLayout({ modules }: CurrentModuleLayoutProps) {
                 {module.selectedLessons.length} selected lesson{module.selectedLessons.length === 1 ? '' : 's'}
               </p>
               <p className="mt-2 text-xs font-medium text-gray-500">
-                {module.availableLessons.length} available lesson{module.availableLessons.length === 1 ? '' : 's'}
-                {module.examDate ? ` - Exam ${formatSingaporeTimetableTime(module.examDate)}` : ''}
+                {module.isTimetableDataAvailable ? (
+                  <>
+                    {module.availableLessons.length} available lesson
+                    {module.availableLessons.length === 1 ? '' : 's'}
+                    {module.examDate
+                      ? ` - Exam ${formatSingaporeTimetableTime(module.examDate)}`
+                      : ''}
+                  </>
+                ) : (
+                  'Lecture and exam data are unavailable for this academic year.'
+                )}
               </p>
             </article>
           ))}

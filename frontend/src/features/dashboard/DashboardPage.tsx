@@ -15,8 +15,12 @@ import { useDashboardModuleSelection } from './DashboardModuleSelectionContext';
 import { calculateGpa, formatGpa } from './dashboard-grades';
 
 export function DashboardPage() {
-  const { completedSemesterKeys, matriculationYear, semesterModules } =
-    useDashboardModuleSelection();
+  const {
+    completedSemesterKeys,
+    matriculationYear,
+    planSaveError,
+    semesterModules,
+  } = useDashboardModuleSelection();
   const years: YearNumber[] = [1, 2, 3, 4];
   const completedModules = Object.entries(semesterModules).flatMap(
     ([semesterKey, modules]) =>
@@ -26,6 +30,12 @@ export function DashboardPage() {
 
   return (
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]">
+      {planSaveError ? (
+        <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 xl:col-span-2">
+          {planSaveError}
+        </div>
+      ) : null}
+
       <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm xl:col-span-2">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

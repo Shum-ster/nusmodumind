@@ -67,6 +67,7 @@ export class NusmoduleService {
       take: limit + 1,
       select: {
         moduleCode: true,
+        sourceAcadYear: true,
         title: true,
         description: true,
         faculty: true,

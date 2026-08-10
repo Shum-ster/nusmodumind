@@ -139,6 +139,7 @@ describe('NusModulesCronService', () => {
     await service.syncNusModsData();
 
     const expectedModuleData = {
+      sourceAcadYear: '2026/2027',
       title: moduleDetail.title,
       description: moduleDetail.description,
       moduleCredit: moduleDetail.moduleCredit,
@@ -170,9 +171,11 @@ describe('NusModulesCronService', () => {
     const query = getExecutedQuery();
     expect(query.sql).toContain('INSERT INTO "nus_modules"');
     expect(query.sql).toContain('ON CONFLICT ("module_code") DO UPDATE SET');
+    expect(query.sql).toContain('"source_acad_year" = CASE');
     expect(query.sql).toContain('"last_updated" = CURRENT_TIMESTAMP');
     expect(query.values).toEqual([
       moduleDetail.moduleCode,
+      expectedModuleData.sourceAcadYear,
       expectedModuleData.title,
       expectedModuleData.description,
       expectedModuleData.moduleCredit,
@@ -201,7 +204,7 @@ describe('NusModulesCronService', () => {
     await service.syncNusModsData();
 
     const query = getExecutedQuery();
-    expect(query.values[11]).toBe('[]');
+    expect(query.values[12]).toBe('[]');
   });
 
   it('processes upserts in 100-module batches', async () => {
@@ -219,8 +222,8 @@ describe('NusModulesCronService', () => {
 
     const firstQuery = getExecutedQuery();
     const lastQuery = getExecutedQuery(5);
-    expect(firstQuery.values).toHaveLength(1_300);
-    expect(lastQuery.values).toHaveLength(13);
+    expect(firstQuery.values).toHaveLength(1_400);
+    expect(lastQuery.values).toHaveLength(14);
   });
 
   it('uses safe defaults when NUSMods omits required schema fields', async () => {
@@ -248,6 +251,7 @@ describe('NusModulesCronService', () => {
     const query = getExecutedQuery();
     expect(query.values).toEqual([
       incompleteModule.moduleCode,
+      '2026/2027',
       incompleteModule.title,
       '',
       '',
@@ -321,7 +325,8 @@ describe('NusModulesCronService', () => {
     await service.syncNusModsData();
 
     const query = getExecutedQuery();
-    expect(query.values[11]).toBeNull();
+    expect(query.values[12]).toBeNull();
     expect(query.sql).toContain('COALESCE(');
+    expect(query.sql).toContain('THEN "nus_modules"."source_acad_year"');
   });
 });

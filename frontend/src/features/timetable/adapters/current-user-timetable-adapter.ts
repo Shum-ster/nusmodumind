@@ -44,10 +44,14 @@ export function buildCurrentUserTimetable(
           plannedModule.semester !== null,
       )
       .map((plannedModule) => {
-        const semesterData = getMatchingSemesterData(
-          plannedModule.module.semesterData,
-          semester.semesterNumber,
-        );
+        const isTimetableDataAvailable =
+          plannedModule.module.sourceAcadYear === semester.acadYear;
+        const semesterData = isTimetableDataAvailable
+          ? getMatchingSemesterData(
+              plannedModule.module.semesterData,
+              semester.semesterNumber,
+            )
+          : null;
         const availableLessons = getAvailableLessons(
           plannedModule.moduleCode,
           semesterData,
@@ -63,6 +67,7 @@ export function buildCurrentUserTimetable(
           ),
           availableLessons,
           examDate: getExamDate(semesterData),
+          isTimetableDataAvailable,
         };
       }),
   };

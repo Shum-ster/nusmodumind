@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { getToken } from '@/features/auth/lib/token-storage';
+import { useDashboardModuleSelection } from '@/features/dashboard/DashboardModuleSelectionContext';
 import {
+  buildPlanSemesterOptions,
   getCurrentUserPlan,
   updatePlannedModule,
 } from '@/features/planner';
 import type {
   CurrentUserTimetable,
-  SemesterRecord,
   TimetableLesson,
   TimetableModule,
 } from '@/shared/types';
@@ -24,14 +25,6 @@ import {
 } from './components/LessonSelection';
 import { CurrentModuleLayout } from './components/currentModuleLayout';
 import { ScrollFeature } from './components/scrollFeature';
-
-type SemesterOption = {
-  id: string | null;
-  acadYear: string;
-  label: string;
-  semester: number;
-  year: number;
-};
 
 type ActiveLessonSelection = {
   lessonType: string;
@@ -62,7 +55,6 @@ type TimetableImagePalette = {
 
 const timetableDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const dayOrder = new Map(timetableDays.map((day, index) => [day, index]));
-const defaultMatriculationYear = 2026;
 const dayColumnWidth = 76;
 const filledTimeIntervalMinWidth = 112;
 const lessonLaneMinHeight = 78;
@@ -78,8 +70,6 @@ const emptyTimeBoundaries = [
   '1600',
   '1700',
 ];
-const yearsInPlan = [1, 2, 3, 4];
-const semestersInYear = [1, 2];
 
 const lessonPalettes: LessonSelectionPalette[] = [
   {
@@ -135,41 +125,6 @@ const timetableImagePalettes: TimetableImagePalette[] = [
   { border: '#fda4af', fill: '#ffe4e6', text: '#9f1239' },
   { border: '#67e8f9', fill: '#cffafe', text: '#155e75' },
 ];
-
-function getAcademicYearStart(acadYear: string) {
-  const yearMatch = acadYear.match(/\d{4}/);
-
-  return yearMatch ? Number(yearMatch[0]) : null;
-}
-
-function buildSemesterOptions(semesters: SemesterRecord[]): SemesterOption[] {
-  const firstAcademicYear =
-    semesters
-      .map((semester) => getAcademicYearStart(semester.acadYear))
-      .filter((year): year is number => year !== null)
-      .sort((firstYear, secondYear) => firstYear - secondYear)[0] ??
-    defaultMatriculationYear;
-
-  return yearsInPlan.flatMap((year) =>
-    semestersInYear.map((semesterNumber) => {
-      const academicYearStart = firstAcademicYear + year - 1;
-      const acadYear = `${academicYearStart}/${academicYearStart + 1}`;
-      const matchingSavedSemester = semesters.find(
-        (semester) =>
-          getAcademicYearStart(semester.acadYear) === academicYearStart &&
-          semester.semesterNumber === semesterNumber,
-      );
-
-      return {
-        id: matchingSavedSemester?.id ?? null,
-        acadYear,
-        label: `AY${acadYear} Semester ${semesterNumber}`,
-        semester: semesterNumber,
-        year,
-      };
-    }),
-  );
-}
 
 function normalizeTime(time: string) {
   const normalizedTime = time.trim().padStart(4, '0');
@@ -438,6 +393,8 @@ function buildPlacedLessons(
 }
 
 export function TimetablePage() {
+  const { matriculationYear, waitForPendingPlanWrites } =
+    useDashboardModuleSelection();
   const [activeLessonSelection, setActiveLessonSelection] =
     useState<ActiveLessonSelection | null>(null);
   const [activeSemesterIndex, setActiveSemesterIndex] = useState(0);
@@ -447,8 +404,8 @@ export function TimetablePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingLessonId, setPendingLessonId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [semesterOptions, setSemesterOptions] = useState<SemesterOption[]>(() =>
-    buildSemesterOptions([]),
+  const [semesterOptions, setSemesterOptions] = useState(() =>
+    buildPlanSemesterOptions([], matriculationYear),
   );
   const [timetable, setTimetable] = useState<CurrentUserTimetable | null>(null);
   const [token, setToken] = useState<string | null | undefined>(undefined);
@@ -471,6 +428,7 @@ export function TimetablePage() {
       setSaveError(null);
 
       try {
+        await waitForPendingPlanWrites();
         const plan = await getCurrentUserPlan(storedToken);
         const currentTimetable = buildCurrentUserTimetable(plan, semesterId);
 
@@ -488,7 +446,7 @@ export function TimetablePage() {
         }
       }
     },
-    [],
+    [waitForPendingPlanWrites],
   );
 
   useEffect(() => {
@@ -520,13 +478,17 @@ export function TimetablePage() {
       };
     }
 
-    getCurrentUserPlan(token)
+    waitForPendingPlanWrites()
+      .then(() => getCurrentUserPlan(token))
       .then((plan) => {
         if (!isCurrentRequest) {
           return;
         }
 
-        const nextSemesterOptions = buildSemesterOptions(plan.semesters);
+        const nextSemesterOptions = buildPlanSemesterOptions(
+          plan.semesters,
+          matriculationYear,
+        );
 
         setSemesterOptions(nextSemesterOptions);
         setActiveSemesterIndex(0);
@@ -551,7 +513,12 @@ export function TimetablePage() {
     return () => {
       isCurrentRequest = false;
     };
-  }, [loadTimetableForSemester, token]);
+  }, [
+    loadTimetableForSemester,
+    matriculationYear,
+    token,
+    waitForPendingPlanWrites,
+  ]);
 
   const paletteByModuleId = useMemo(() => {
     const palettes = new Map<string, LessonSelectionPalette>();
@@ -1075,8 +1042,14 @@ export function TimetablePage() {
     }
 
     if (!timetable || visibleLessons.length === 0 || intervalCount === 0) {
+      const hasUnavailableTimetableData = timetable?.modules.some(
+        (module) => !module.isTimetableDataAvailable,
+      );
+
       return renderEmptyTimetableShell(
-        'No timetable lessons are available for this semester.',
+        hasUnavailableTimetableData
+          ? 'Lecture and exam data are unavailable for this academic year.'
+          : 'No timetable lessons are available for this semester.',
       );
     }
 

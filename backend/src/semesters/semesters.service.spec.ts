@@ -8,6 +8,7 @@ describe('SemestersService', () => {
   let prisma: {
     semester: {
       create: jest.Mock;
+      upsert: jest.Mock;
       findMany: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
@@ -37,6 +38,7 @@ describe('SemestersService', () => {
     prisma = {
       semester: {
         create: jest.fn().mockResolvedValue(semester),
+        upsert: jest.fn().mockResolvedValue(semester),
         findMany: jest.fn().mockResolvedValue([semester]),
         findUnique: jest.fn().mockResolvedValue(semester),
         update: jest.fn().mockResolvedValue(semester),
@@ -71,8 +73,16 @@ describe('SemestersService', () => {
     await expect(service.create(semester.userId, data)).resolves.toEqual(
       semester,
     );
-    expect(prisma.semester.create).toHaveBeenCalledWith({
-      data: { ...data, userId: semester.userId },
+    expect(prisma.semester.upsert).toHaveBeenCalledWith({
+      where: {
+        userId_acadYear_semesterNumber: {
+          userId: semester.userId,
+          acadYear: data.acadYear,
+          semesterNumber: data.semesterNumber,
+        },
+      },
+      create: { ...data, userId: semester.userId },
+      update: {},
     });
   });
 

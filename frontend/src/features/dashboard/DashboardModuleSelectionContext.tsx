@@ -17,6 +17,10 @@ import {
   deletePlannedModule,
   getCurrentUserPlan,
   updatePlannedModule,
+  getAcadYearForSemesterKey,
+  getEffectiveMatriculationYear,
+  getSemesterKeyFromRecord,
+  parseSemesterKey,
   type PlannedModuleRecord,
   type PlannedModuleStatus,
   type SemesterRecord,
@@ -27,17 +31,13 @@ import {
   normalizeModuleActualGrade,
   type DashboardGrade,
 } from './dashboard-grades';
-import type {
-  DashboardModule,
-  SemesterKey,
-  SemesterNumber,
-  YearNumber,
-} from '@/shared/types';
+import type { DashboardModule, SemesterKey } from '@/shared/types';
 
 type DashboardModuleSelectionContextValue = {
   completedSemesterKeys: Record<SemesterKey, boolean>;
   exemptedModules: DashboardModule[];
   matriculationYear: number;
+  planSaveError: string | null;
   semesterModules: Record<SemesterKey, DashboardModule[]>;
   selectedModules: DashboardModule[];
   addSelectedModule: (module: DashboardModule) => void;
@@ -62,6 +62,7 @@ type DashboardModuleSelectionContextValue = {
     moduleCode: string,
     actualGrade: DashboardGrade | null,
   ) => void;
+  waitForPendingPlanWrites: () => Promise<void>;
 };
 
 const DashboardModuleSelectionContext =
@@ -84,9 +85,6 @@ const initialSemesterModules: Record<SemesterKey, DashboardModule[]> = {
   'year-4-semester-1': [],
   'year-4-semester-2': [],
 };
-
-const defaultMatriculationYear = 2026;
-const planDurationYears = 4;
 
 function cloneInitialSemesterModules() {
   return Object.fromEntries(
@@ -138,62 +136,8 @@ function toDashboardModule(
     isSuEligible: isModuleSuEligible(plannedModule.module.attributes),
     prerequisite: plannedModule.module.prerequisite,
     semesterData: plannedModule.module.semesterData,
+    sourceAcadYear: plannedModule.module.sourceAcadYear,
   };
-}
-
-function parseSemesterKey(semesterKey: SemesterKey) {
-  const [, year, , semester] = semesterKey.split('-');
-
-  return {
-    semesterNumber: Number(semester) as SemesterNumber,
-    yearNumber: Number(year) as YearNumber,
-  };
-}
-
-function getMatriculationYearFromGraduationYear(
-  graduationYear?: number | null,
-) {
-  return graduationYear
-    ? graduationYear - planDurationYears
-    : defaultMatriculationYear;
-}
-
-function getAcadYearForSemesterKey(
-  semesterKey: SemesterKey,
-  matriculationYear: number,
-) {
-  const { yearNumber } = parseSemesterKey(semesterKey);
-  const academicYearStart = matriculationYear + yearNumber - 1;
-
-  return `${academicYearStart}/${academicYearStart + 1}`;
-}
-
-function getAcademicYearStart(acadYear: string) {
-  const yearMatch = acadYear.match(/\d{4}/);
-
-  return yearMatch ? Number(yearMatch[0]) : null;
-}
-
-function getSemesterKeyFromRecord(
-  semester: SemesterRecord,
-  matriculationYear: number,
-): SemesterKey | null {
-  const academicYearStart = getAcademicYearStart(semester.acadYear);
-
-  if (
-    academicYearStart === null ||
-    (semester.semesterNumber !== 1 && semester.semesterNumber !== 2)
-  ) {
-    return null;
-  }
-
-  const yearNumber = academicYearStart - matriculationYear + 1;
-
-  if (yearNumber < 1 || yearNumber > 4) {
-    return null;
-  }
-
-  return `year-${yearNumber as YearNumber}-semester-${semester.semesterNumber as SemesterNumber}`;
 }
 
 function removeModuleFromSemesterState(
@@ -212,17 +156,77 @@ function removeModuleFromSemesterState(
   return nextSemesters;
 }
 
+function buildDashboardPlanState(
+  plan: Awaited<ReturnType<typeof getCurrentUserPlan>>,
+  matriculationYear: number,
+) {
+  const exemptedModules: DashboardModule[] = [];
+  const selectedModules: DashboardModule[] = [];
+  const completedSemesterKeys = cloneInitialCompletedSemesterKeys();
+  const semesterModules = cloneInitialSemesterModules();
+  const plannedModuleIdsByCode: PlannedModuleIdsByCode = {};
+  const semesterRecordsByKey: SemesterRecordsByKey = {};
+
+  plan.semesters.forEach((semester) => {
+    const semesterKey = getSemesterKeyFromRecord(semester, matriculationYear);
+
+    if (semesterKey) {
+      semesterRecordsByKey[semesterKey] = semester;
+    }
+  });
+
+  plan.plannedModules.forEach((plannedModule) => {
+    const dashboardModule = toDashboardModule(plannedModule);
+
+    plannedModuleIdsByCode[dashboardModule.code] = plannedModule.id;
+
+    if (plannedModule.status === 'EXEMPTED') {
+      exemptedModules.push(dashboardModule);
+      return;
+    }
+
+    if (plannedModule.status === 'PLANNED' && plannedModule.semester) {
+      const semesterKey = getSemesterKeyFromRecord(
+        plannedModule.semester,
+        matriculationYear,
+      );
+
+      if (semesterKey) {
+        semesterModules[semesterKey] = [
+          ...semesterModules[semesterKey],
+          dashboardModule,
+        ];
+        completedSemesterKeys[semesterKey] =
+          completedSemesterKeys[semesterKey] ||
+          dashboardModule.actualGrade !== null;
+        semesterRecordsByKey[semesterKey] = plannedModule.semester;
+        return;
+      }
+    }
+
+    selectedModules.push(dashboardModule);
+  });
+
+  return {
+    completedSemesterKeys,
+    exemptedModules,
+    plannedModuleIdsByCode,
+    selectedModules,
+    semesterModules,
+    semesterRecordsByKey,
+  };
+}
+
 export function DashboardModuleSelectionProvider({
   children,
 }: DashboardModuleSelectionProviderProps) {
   const { profile } = useUserProfile();
-  const matriculationYear =
-    profile?.matriculationYear ??
-    getMatriculationYearFromGraduationYear(profile?.graduationYear);
+  const matriculationYear = getEffectiveMatriculationYear(profile);
   const [completedSemesterKeys, setCompletedSemesterKeys] = useState(
     cloneInitialCompletedSemesterKeys,
   );
   const [exemptedModules, setExemptedModules] = useState<DashboardModule[]>([]);
+  const [planSaveError, setPlanSaveError] = useState<string | null>(null);
   const [selectedModules, setSelectedModules] = useState<DashboardModule[]>([]);
   const [semesterModules, setSemesterModules] = useState(
     cloneInitialSemesterModules,
@@ -237,6 +241,8 @@ export function DashboardModuleSelectionProvider({
   const pendingSemesterCreatesRef = useRef<
     Partial<Record<SemesterKey, Promise<SemesterRecord>>>
   >({});
+  const pendingPlanWritesRef = useRef<Set<Promise<void>>>(new Set());
+  const lastPlanWriteErrorRef = useRef<unknown>(null);
   const semesterRecordsByKeyRef = useRef<SemesterRecordsByKey>({});
   const matriculationYearRef = useRef(matriculationYear);
   const tokenRef = useRef<string | null>(null);
@@ -248,6 +254,25 @@ export function DashboardModuleSelectionProvider({
   useEffect(() => {
     matriculationYearRef.current = matriculationYear;
   }, [matriculationYear]);
+
+  const applyPlan = useCallback(
+    (
+      plan: Awaited<ReturnType<typeof getCurrentUserPlan>>,
+      planMatriculationYear: number,
+    ) => {
+      const nextState = buildDashboardPlanState(plan, planMatriculationYear);
+
+      plannedModuleIdsByCodeRef.current = nextState.plannedModuleIdsByCode;
+      semesterRecordsByKeyRef.current = nextState.semesterRecordsByKey;
+      setCompletedSemesterKeys(nextState.completedSemesterKeys);
+      setExemptedModules(nextState.exemptedModules);
+      setSelectedModules(nextState.selectedModules);
+      setSemesterModules(nextState.semesterModules);
+      setPlannedModuleIdsByCode(nextState.plannedModuleIdsByCode);
+      setSemesterRecordsByKey(nextState.semesterRecordsByKey);
+    },
+    [],
+  );
 
   useEffect(() => {
     const token = getToken();
@@ -267,64 +292,7 @@ export function DashboardModuleSelectionProvider({
           return;
         }
 
-        const nextExemptedModules: DashboardModule[] = [];
-        const nextSelectedModules: DashboardModule[] = [];
-        const nextCompletedSemesterKeys = cloneInitialCompletedSemesterKeys();
-        const nextSemesterModules = cloneInitialSemesterModules();
-        const nextPlannedModuleIdsByCode: PlannedModuleIdsByCode = {};
-        const nextSemesterRecordsByKey: SemesterRecordsByKey = {};
-
-        plan.semesters.forEach((semester) => {
-          const semesterKey = getSemesterKeyFromRecord(
-            semester,
-            matriculationYear,
-          );
-
-          if (semesterKey) {
-            nextSemesterRecordsByKey[semesterKey] = semester;
-          }
-        });
-
-        plan.plannedModules.forEach((plannedModule) => {
-          const dashboardModule = toDashboardModule(plannedModule);
-
-          nextPlannedModuleIdsByCode[dashboardModule.code] = plannedModule.id;
-
-          if (plannedModule.status === 'EXEMPTED') {
-            nextExemptedModules.push(dashboardModule);
-            return;
-          }
-
-          if (plannedModule.status === 'PLANNED' && plannedModule.semester) {
-            const semesterKey = getSemesterKeyFromRecord(
-              plannedModule.semester,
-              matriculationYear,
-            );
-
-            if (semesterKey) {
-              nextSemesterModules[semesterKey] = [
-                ...nextSemesterModules[semesterKey],
-                dashboardModule,
-              ];
-              nextCompletedSemesterKeys[semesterKey] =
-                nextCompletedSemesterKeys[semesterKey] ||
-                dashboardModule.actualGrade !== null;
-              nextSemesterRecordsByKey[semesterKey] = plannedModule.semester;
-              return;
-            }
-          }
-
-          nextSelectedModules.push(dashboardModule);
-        });
-
-        plannedModuleIdsByCodeRef.current = nextPlannedModuleIdsByCode;
-        semesterRecordsByKeyRef.current = nextSemesterRecordsByKey;
-        setCompletedSemesterKeys(nextCompletedSemesterKeys);
-        setExemptedModules(nextExemptedModules);
-        setSelectedModules(nextSelectedModules);
-        setSemesterModules(nextSemesterModules);
-        setPlannedModuleIdsByCode(nextPlannedModuleIdsByCode);
-        setSemesterRecordsByKey(nextSemesterRecordsByKey);
+        applyPlan(plan, matriculationYear);
       })
       .catch(() => {
         // Keep the optimistic local dashboard usable if hydration fails.
@@ -333,7 +301,62 @@ export function DashboardModuleSelectionProvider({
     return () => {
       isCurrentRequest = false;
     };
-  }, [matriculationYear]);
+  }, [applyPlan, matriculationYear]);
+
+  const restorePlanFromServer = useCallback(async () => {
+    const token = tokenRef.current;
+
+    if (!token) {
+      return;
+    }
+
+    const plan = await getCurrentUserPlan(token);
+    applyPlan(plan, matriculationYearRef.current);
+  }, [applyPlan]);
+
+  const trackPlanWrite = useCallback(
+    (write: Promise<unknown>) => {
+      setPlanSaveError(null);
+
+      const trackedWrite = write
+        .then(() => undefined)
+        .catch(async (error: unknown) => {
+          lastPlanWriteErrorRef.current = error;
+          setPlanSaveError(
+            'Unable to save the latest plan change. The dashboard was restored to the saved plan.',
+          );
+
+          try {
+            await restorePlanFromServer();
+          } catch {
+            setPlanSaveError(
+              'Unable to save or reload the plan. Refresh before making more changes.',
+            );
+          }
+
+          throw error;
+        })
+        .finally(() => {
+          pendingPlanWritesRef.current.delete(trackedWrite);
+        });
+
+      pendingPlanWritesRef.current.add(trackedWrite);
+      void trackedWrite.catch(() => undefined);
+    },
+    [restorePlanFromServer],
+  );
+
+  const waitForPendingPlanWrites = useCallback(async () => {
+    while (pendingPlanWritesRef.current.size > 0) {
+      await Promise.allSettled(Array.from(pendingPlanWritesRef.current));
+    }
+
+    if (lastPlanWriteErrorRef.current) {
+      const error = lastPlanWriteErrorRef.current;
+      lastPlanWriteErrorRef.current = null;
+      throw error;
+    }
+  }, []);
 
   const registerPlannedModule = useCallback(
     (moduleCode: string, plannedModuleId: string) => {
@@ -508,11 +531,16 @@ export function DashboardModuleSelectionProvider({
         return [...currentModules, selectedModule];
       });
 
-      void persistModulePlacement(selectedModule, 'SELECTED', null).catch(
-        () => undefined,
+      trackPlanWrite(
+        persistModulePlacement(selectedModule, 'SELECTED', null),
       );
     },
-    [exemptedModules, persistModulePlacement, semesterModules],
+    [
+      exemptedModules,
+      persistModulePlacement,
+      semesterModules,
+      trackPlanWrite,
+    ],
   );
 
   const isModuleSelected = useCallback(
@@ -578,20 +606,25 @@ export function DashboardModuleSelectionProvider({
       const pendingCreate = pendingPlannedModuleCreatesRef.current[moduleCode];
 
       if (token && plannedModuleId) {
-        void deletePlannedModule(token, plannedModuleId)
-          .then(() => unregisterPlannedModule(moduleCode))
-          .catch(() => undefined);
+        trackPlanWrite(
+          deletePlannedModule(token, plannedModuleId).then(() =>
+            unregisterPlannedModule(moduleCode),
+          ),
+        );
         return;
       }
 
       if (token && pendingCreate) {
-        void pendingCreate
-          .then((plannedModule) => deletePlannedModule(token, plannedModule.id))
-          .then(() => unregisterPlannedModule(moduleCode))
-          .catch(() => undefined);
+        trackPlanWrite(
+          pendingCreate
+            .then((plannedModule) =>
+              deletePlannedModule(token, plannedModule.id),
+            )
+            .then(() => unregisterPlannedModule(moduleCode)),
+        );
       }
     },
-    [unregisterPlannedModule],
+    [trackPlanWrite, unregisterPlannedModule],
   );
 
   const moveModuleToSelected = useCallback(
@@ -616,11 +649,14 @@ export function DashboardModuleSelectionProvider({
         return [...currentModules, targetModule];
       });
 
-      void persistModulePlacement(targetModule, 'SELECTED', null).catch(
-        () => undefined,
-      );
+      trackPlanWrite(persistModulePlacement(targetModule, 'SELECTED', null));
     },
-    [findModuleByCode, persistModulePlacement, removeModuleFromBuckets],
+    [
+      findModuleByCode,
+      persistModulePlacement,
+      removeModuleFromBuckets,
+      trackPlanWrite,
+    ],
   );
 
   const moveModuleToExempted = useCallback(
@@ -645,11 +681,14 @@ export function DashboardModuleSelectionProvider({
         return [...currentModules, targetModule];
       });
 
-      void persistModulePlacement(targetModule, 'EXEMPTED', null).catch(
-        () => undefined,
-      );
+      trackPlanWrite(persistModulePlacement(targetModule, 'EXEMPTED', null));
     },
-    [findModuleByCode, persistModulePlacement, removeModuleFromBuckets],
+    [
+      findModuleByCode,
+      persistModulePlacement,
+      removeModuleFromBuckets,
+      trackPlanWrite,
+    ],
   );
 
   const moveModuleToSemester = useCallback(
@@ -677,21 +716,22 @@ export function DashboardModuleSelectionProvider({
         return nextSemesters;
       });
 
-      void ensureSemester(semesterKey)
-        .then((semester) => {
+      trackPlanWrite(
+        ensureSemester(semesterKey).then((semester) => {
           if (semester) {
             return persistModulePlacement(targetModule, 'PLANNED', semester.id);
           }
 
           return undefined;
-        })
-        .catch(() => undefined);
+        }),
+      );
     },
     [
       ensureSemester,
       findModuleByCode,
       persistModulePlacement,
       removeModuleFromBuckets,
+      trackPlanWrite,
     ],
   );
 
@@ -721,11 +761,9 @@ export function DashboardModuleSelectionProvider({
         return nextSemesters;
       });
 
-      void persistModuleActualGrade(moduleCode, actualGrade).catch(
-        () => undefined,
-      );
+      trackPlanWrite(persistModuleActualGrade(moduleCode, actualGrade));
     },
-    [persistModuleActualGrade],
+    [persistModuleActualGrade, trackPlanWrite],
   );
 
   const value = useMemo(
@@ -733,6 +771,7 @@ export function DashboardModuleSelectionProvider({
       completedSemesterKeys,
       exemptedModules,
       matriculationYear,
+      planSaveError,
       semesterModules,
       selectedModules,
       addSelectedModule,
@@ -744,6 +783,7 @@ export function DashboardModuleSelectionProvider({
       removeSelectedModule,
       toggleSemesterCompletion,
       updateModuleActualGrade,
+      waitForPendingPlanWrites,
     }),
     [
       addSelectedModule,
@@ -755,11 +795,13 @@ export function DashboardModuleSelectionProvider({
       moveModuleToSelected,
       moveModuleToSemester,
       matriculationYear,
+      planSaveError,
       removeSelectedModule,
       selectedModules,
       semesterModules,
       toggleSemesterCompletion,
       updateModuleActualGrade,
+      waitForPendingPlanWrites,
     ],
   );
 
