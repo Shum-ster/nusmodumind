@@ -1,12 +1,25 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const LOCAL_API_BASE_URL = "http://localhost:3001";
+const PRODUCTION_API_BASE_URL = "/api";
 
 export function createApiUrl(path: string) {
-  if (/^https?:\/\//i.test(API_BASE_URL)) {
-    return new URL(`${API_BASE_URL}${path}`);
+  const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  const apiBaseUrl =
+    configuredApiBaseUrl ||
+    (process.env.NODE_ENV === "production"
+      ? PRODUCTION_API_BASE_URL
+      : LOCAL_API_BASE_URL);
+  const normalizedPath = path.replace(/^\/+/, "");
+
+  if (/^https?:\/\//i.test(apiBaseUrl)) {
+    return new URL(normalizedPath, `${apiBaseUrl.replace(/\/+$/, "")}/`);
   }
 
-  return new URL(`${API_BASE_URL}${path}`, window.location.origin);
+  const relativeBasePath = apiBaseUrl.replace(/^\/+|\/+$/g, "");
+  const relativePath = `/${[relativeBasePath, normalizedPath]
+    .filter(Boolean)
+    .join("/")}`;
+
+  return new URL(relativePath, window.location.origin);
 }
 
 type ApiRequestOptions = {
@@ -67,7 +80,17 @@ async function readResponse(response: Response) {
 
 function getErrorMessage(body: unknown, fallback: string) {
   if (typeof body === "string") {
-    return body;
+    const message = body.trim();
+
+    if (
+      !message ||
+      /<!doctype html|<html[\s>]/i.test(message) ||
+      message.length > 500
+    ) {
+      return "The server returned an unexpected response. Please try again.";
+    }
+
+    return message;
   }
 
   if (body && typeof body === "object" && "message" in body) {

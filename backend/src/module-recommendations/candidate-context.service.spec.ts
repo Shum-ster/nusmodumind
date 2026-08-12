@@ -2,7 +2,10 @@ import { BadRequestException } from '@nestjs/common';
 import { PlannedModuleStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NusModuleSearchService } from './nus-module-search.service';
-import type { ValidatedModuleCandidate } from './module-recommendation.types';
+import type {
+  RecommendationBaseContext,
+  ValidatedModuleCandidate,
+} from './module-recommendation.types';
 import { RecommendationContextService } from './recommendation-context.service';
 
 describe('RecommendationContextService', () => {
@@ -27,7 +30,7 @@ describe('RecommendationContextService', () => {
       },
     ],
     generatedAt: '2026-07-19T00:00:00.000Z',
-    promptVersion: 'degree-requirements-v2',
+    promptVersion: 'degree-requirements-v2' as const,
   };
 
   beforeEach(() => {
@@ -122,7 +125,7 @@ describe('RecommendationContextService', () => {
       { content: 'A'.repeat(400) },
       { content: 'Useful project module.' },
     ]);
-    const baseContext = {
+    const baseContext: RecommendationBaseContext = {
       requirements,
       lifestylePreferences: null,
       targetSemester: { acadYear: '2026/2027', semesterNumber: 1 as const },

@@ -94,8 +94,12 @@ describe('Application API (e2e)', () => {
     process.env.NODE_ENV = 'test';
 
     execFileSync(
-      join(process.cwd(), 'node_modules', '.bin', 'prisma'),
-      ['migrate', 'deploy'],
+      process.execPath,
+      [
+        join(process.cwd(), 'node_modules', 'prisma', 'build', 'index.js'),
+        'migrate',
+        'deploy',
+      ],
       {
         cwd: process.cwd(),
         env: process.env,
@@ -145,6 +149,7 @@ describe('Application API (e2e)', () => {
           moduleCode: 'CS1010S',
           moduleCredit: '4',
           semesterData: [{ semester: 1 }, { semester: 2 }],
+          sourceAcadYear: '2026/2027',
           title: 'Programming Methodology',
           workload: [2, 1, 1, 3, 3],
         },
@@ -156,6 +161,7 @@ describe('Application API (e2e)', () => {
           moduleCredit: '4',
           prerequisite: 'CS1010S',
           semesterData: [{ semester: 1 }, { semester: 2 }],
+          sourceAcadYear: '2026/2027',
           title: 'Computer Organisation',
           workload: [2, 1, 1, 3, 3],
         },
@@ -167,6 +173,7 @@ describe('Application API (e2e)', () => {
           moduleCode: 'CFG1002',
           moduleCredit: '2',
           semesterData: [{ semester: 1 }],
+          sourceAcadYear: '2026/2027',
           title: 'Career Catalyst',
         },
       ],
@@ -370,6 +377,24 @@ describe('Application API (e2e)', () => {
       .get(`/semesters/user/${first.id}`)
       .set(auth(second.token))
       .expect(403);
+
+    const conflictingSemester = await request(app.getHttpServer())
+      .post('/semesters')
+      .set(auth(first.token))
+      .send({ acadYear: '2026/2027', semesterNumber: 2 })
+      .expect(201)
+      .then(({ body }) => body as { id: string });
+
+    await request(app.getHttpServer())
+      .patch(`/semesters/${semester.id}`)
+      .set(auth(first.token))
+      .send({ semesterNumber: 2 })
+      .expect(409);
+
+    await request(app.getHttpServer())
+      .delete(`/semesters/${conflictingSemester.id}`)
+      .set(auth(first.token))
+      .expect(200);
 
     await request(app.getHttpServer())
       .patch(`/semesters/${semester.id}`)

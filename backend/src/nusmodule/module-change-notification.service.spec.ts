@@ -5,7 +5,10 @@ import {
 import { ResendEmailService } from '../email/resend-email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ModuleChangeNotificationService } from './module-change-notification.service';
-import type { DetectedModuleChanges } from './module-change.types';
+import type {
+  DetectedModuleChanges,
+  ModuleUpdateNotificationPayload,
+} from './module-change.types';
 import { buildModuleUpdateEmail } from './module-update-email.template';
 
 describe('ModuleChangeNotificationService', () => {
@@ -213,7 +216,22 @@ describe('ModuleChangeNotificationService', () => {
   });
 });
 
-function buildPendingNotification() {
+function buildPendingNotification(): {
+  id: string;
+  userId: string;
+  moduleCode: string;
+  acadYear: string;
+  semesterNumber: number;
+  changes: ModuleUpdateNotificationPayload;
+  fingerprint: string;
+  status: ModuleUpdateNotificationStatus;
+  attempts: number;
+  lastError: string | null;
+  sentAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  user: { email: string; username: string | null };
+} {
   return {
     id: 'notification-id',
     userId: 'user-id',

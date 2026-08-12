@@ -241,6 +241,8 @@ export function DashboardModuleSelectionProvider({
   const pendingSemesterCreatesRef = useRef<
     Partial<Record<SemesterKey, Promise<SemesterRecord>>>
   >({});
+  const planWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const planReconciliationRef = useRef<Promise<void> | null>(null);
   const pendingPlanWritesRef = useRef<Set<Promise<void>>>(new Set());
   const lastPlanWriteErrorRef = useRef<unknown>(null);
   const semesterRecordsByKeyRef = useRef<SemesterRecordsByKey>({});
@@ -314,36 +316,75 @@ export function DashboardModuleSelectionProvider({
     applyPlan(plan, matriculationYearRef.current);
   }, [applyPlan]);
 
-  const trackPlanWrite = useCallback(
-    (write: Promise<unknown>) => {
-      setPlanSaveError(null);
+  const reconcilePlanAfterWriteFailure = useCallback(() => {
+    if (planReconciliationRef.current) {
+      return planReconciliationRef.current;
+    }
 
-      const trackedWrite = write
+    const reconciliation = restorePlanFromServer()
+      .then(() => {
+        setPlanSaveError(
+          'Unable to save one or more plan changes. The dashboard was refreshed from the saved plan.',
+        );
+      })
+      .catch(() => {
+        setPlanSaveError(
+          'Unable to save or reload the plan. Refresh before making more changes.',
+        );
+      })
+      .finally(() => {
+        pendingPlanWritesRef.current.delete(reconciliation);
+
+        if (planReconciliationRef.current === reconciliation) {
+          planReconciliationRef.current = null;
+        }
+      });
+
+    planReconciliationRef.current = reconciliation;
+    pendingPlanWritesRef.current.add(reconciliation);
+    planWriteQueueRef.current = reconciliation;
+
+    return reconciliation;
+  }, [restorePlanFromServer]);
+
+  const trackPlanWrite = useCallback(
+    (write: () => Promise<unknown>) => {
+      if (
+        pendingPlanWritesRef.current.size === 0 &&
+        !planReconciliationRef.current
+      ) {
+        lastPlanWriteErrorRef.current = null;
+        setPlanSaveError(null);
+      }
+
+      const trackedWrite = planWriteQueueRef.current
+        .catch(() => undefined)
+        .then(write)
         .then(() => undefined)
-        .catch(async (error: unknown) => {
+        .catch((error: unknown) => {
           lastPlanWriteErrorRef.current = error;
           setPlanSaveError(
-            'Unable to save the latest plan change. The dashboard was restored to the saved plan.',
+            'Unable to save the latest plan change. Checking the saved plan before continuing.',
           );
-
-          try {
-            await restorePlanFromServer();
-          } catch {
-            setPlanSaveError(
-              'Unable to save or reload the plan. Refresh before making more changes.',
-            );
-          }
-
           throw error;
         })
         .finally(() => {
           pendingPlanWritesRef.current.delete(trackedWrite);
+
+          if (
+            pendingPlanWritesRef.current.size === 0 &&
+            lastPlanWriteErrorRef.current &&
+            !planReconciliationRef.current
+          ) {
+            void reconcilePlanAfterWriteFailure();
+          }
         });
 
       pendingPlanWritesRef.current.add(trackedWrite);
+      planWriteQueueRef.current = trackedWrite.catch(() => undefined);
       void trackedWrite.catch(() => undefined);
     },
-    [restorePlanFromServer],
+    [reconcilePlanAfterWriteFailure],
   );
 
   const waitForPendingPlanWrites = useCallback(async () => {
@@ -531,16 +572,11 @@ export function DashboardModuleSelectionProvider({
         return [...currentModules, selectedModule];
       });
 
-      trackPlanWrite(
+      trackPlanWrite(() =>
         persistModulePlacement(selectedModule, 'SELECTED', null),
       );
     },
-    [
-      exemptedModules,
-      persistModulePlacement,
-      semesterModules,
-      trackPlanWrite,
-    ],
+    [exemptedModules, persistModulePlacement, semesterModules, trackPlanWrite],
   );
 
   const isModuleSelected = useCallback(
@@ -601,28 +637,29 @@ export function DashboardModuleSelectionProvider({
         ),
       );
 
-      const token = tokenRef.current;
-      const plannedModuleId = plannedModuleIdsByCodeRef.current[moduleCode];
-      const pendingCreate = pendingPlannedModuleCreatesRef.current[moduleCode];
+      trackPlanWrite(async () => {
+        const token = tokenRef.current;
+        const plannedModuleId = plannedModuleIdsByCodeRef.current[moduleCode];
+        const pendingCreate =
+          pendingPlannedModuleCreatesRef.current[moduleCode];
 
-      if (token && plannedModuleId) {
-        trackPlanWrite(
-          deletePlannedModule(token, plannedModuleId).then(() =>
-            unregisterPlannedModule(moduleCode),
-          ),
-        );
-        return;
-      }
+        if (!token) {
+          return;
+        }
 
-      if (token && pendingCreate) {
-        trackPlanWrite(
-          pendingCreate
-            .then((plannedModule) =>
-              deletePlannedModule(token, plannedModule.id),
-            )
-            .then(() => unregisterPlannedModule(moduleCode)),
-        );
-      }
+        if (plannedModuleId) {
+          await deletePlannedModule(token, plannedModuleId);
+          unregisterPlannedModule(moduleCode);
+          return;
+        }
+
+        if (pendingCreate) {
+          const plannedModule = await pendingCreate;
+
+          await deletePlannedModule(token, plannedModule.id);
+          unregisterPlannedModule(moduleCode);
+        }
+      });
     },
     [trackPlanWrite, unregisterPlannedModule],
   );
@@ -649,7 +686,9 @@ export function DashboardModuleSelectionProvider({
         return [...currentModules, targetModule];
       });
 
-      trackPlanWrite(persistModulePlacement(targetModule, 'SELECTED', null));
+      trackPlanWrite(() =>
+        persistModulePlacement(targetModule, 'SELECTED', null),
+      );
     },
     [
       findModuleByCode,
@@ -681,7 +720,9 @@ export function DashboardModuleSelectionProvider({
         return [...currentModules, targetModule];
       });
 
-      trackPlanWrite(persistModulePlacement(targetModule, 'EXEMPTED', null));
+      trackPlanWrite(() =>
+        persistModulePlacement(targetModule, 'EXEMPTED', null),
+      );
     },
     [
       findModuleByCode,
@@ -716,7 +757,7 @@ export function DashboardModuleSelectionProvider({
         return nextSemesters;
       });
 
-      trackPlanWrite(
+      trackPlanWrite(() =>
         ensureSemester(semesterKey).then((semester) => {
           if (semester) {
             return persistModulePlacement(targetModule, 'PLANNED', semester.id);
@@ -761,7 +802,7 @@ export function DashboardModuleSelectionProvider({
         return nextSemesters;
       });
 
-      trackPlanWrite(persistModuleActualGrade(moduleCode, actualGrade));
+      trackPlanWrite(() => persistModuleActualGrade(moduleCode, actualGrade));
     },
     [persistModuleActualGrade, trackPlanWrite],
   );

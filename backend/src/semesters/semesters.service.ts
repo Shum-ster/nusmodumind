@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -85,10 +86,21 @@ export class SemestersService {
     updateSemesterDto: UpdateSemesterDto,
   ): Promise<Semester> {
     await this.findOne(id, userId); // Ensure exists and belongs to the user
-    return this.prisma.semester.update({
-      where: { id },
-      data: updateSemesterDto,
-    });
+
+    try {
+      return await this.prisma.semester.update({
+        where: { id },
+        data: updateSemesterDto,
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'A semester already exists for this academic year and semester number.',
+        );
+      }
+
+      throw error;
+    }
   }
 
   async remove(id: string, userId: string): Promise<Semester> {
@@ -97,4 +109,13 @@ export class SemestersService {
       where: { id },
     });
   }
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'P2002'
+  );
 }

@@ -1,5 +1,8 @@
 # NUSModuMind
 
+For the production EC2, RDS, HTTPS, migration, and update procedure, see
+[AWS_DEPLOYMENT.md](./AWS_DEPLOYMENT.md).
+
 ## Database Setup
 
 PostgreSQL should run locally on:

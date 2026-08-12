@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { SemestersService } from './semesters.service';
@@ -156,6 +160,14 @@ describe('SemestersService', () => {
       where: { id: semester.id },
       data: { semesterNumber: 2 },
     });
+  });
+
+  it('returns a conflict when an update duplicates another semester', async () => {
+    prisma.semester.update.mockRejectedValue({ code: 'P2002' });
+
+    await expect(
+      service.update(semester.id, semester.userId, { semesterNumber: 2 }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('removes an existing semester for the owner', async () => {
